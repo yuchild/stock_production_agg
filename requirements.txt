@@ -1,0 +1,27 @@
+# Stock data downloads
+yfinance
+
+# Data manipulation and scientific computing
+pandas
+numpy
+
+# Machine Learning Modeling
+scikit-learn
+xgboost
+
+# PyTorch with GPU support
+# Note: To get GPU capabilities, you may need to install the appropriate CUDA-enabled wheel.
+torch
+torchvision
+
+# Visualization libraries
+matplotlib
+seaborn
+plotly
+
+# Jupyter Notebook and ipykernel for interactive development
+jupyter
+ipykernel
+
+# Deployment with Streamlit
+streamlit
