@@ -5,20 +5,28 @@ import numpy as np
 import yfinance as yf
 import matplotlib.pyplot as plt
 import logging
+import multiprocessing
+from datetime import datetime, timedelta
 
 # Set yfinance logging level to ERROR to suppress DEBUG logs
 logging.getLogger("yfinance").setLevel(logging.ERROR)
+
+#################
+# ETL functions #
+#################
+
+
+etf_list = ['voo', 'vgt', 'vde', 'vpu', 'vdc', 'vfh', 'vht', 'vym', 'vox', 'vb', 'vo', 'vv', 'vug', 'vtv']
 
 
 #################
 # ETL functions #
 #################
 
-etf_list = ['voo', 'vgt', 'vde', 'vpu', 'vdc', 'vfh', 'vht', 'vym', 'vox', 'vb', 'vo', 'vv', 'vug', 'vtv']
 
 def download(symbol, interval):
     
-    stock = Ticker(symbol)
+    stock = yf.Ticker(symbol)
     
     if interval in {'5m','15m','1h',}:
         interval_period_map = {'5m':58,
@@ -44,6 +52,16 @@ def download(symbol, interval):
     
     stock_df.columns = stock_df.columns.str.lower().str.replace(' ', '_')
     stock_df.to_pickle(f'./data_raw/{symbol}_{interval}_df.pkl')
+
+    
+def download_interval_all(interval: str, processes: int) -> None:
+
+    stocks_set = etf_top_stocks(*etf_list)
+
+    params = [(symbol, interval) for symbol in stocks_set]
+
+    with multiprocessing.Pool(processes=processes) as pool:
+        pool.starmap(download, params)
     
 
 def etf_top_stocks(*tickers: str) -> set:
