@@ -14,6 +14,7 @@ logging.getLogger("yfinance").setLevel(logging.ERROR)
 # ETL functions #
 #################
 
+etf_list = ['voo', 'vgt', 'vde', 'vpu', 'vdc', 'vfh', 'vht', 'vym', 'vox', 'vb', 'vo', 'vv', 'vug', 'vtv']
 
 def download(symbol, interval):
     
