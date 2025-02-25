@@ -14,22 +14,65 @@ import time
 logging.getLogger("yfinance").setLevel(logging.ERROR)
 
 ##############
-# ETF Basket #
+# etf basket #
 ##############
 
 
 etf_list = ['voo', 'vgt', 'vde', 'vpu', 'vdc', 'vfh', 'vht', 'vym', 'vox', 'vb', 'vo', 'vv', 'vug', 'vtv']
 
 
-#################
-# ETL functions #
-#################
+###################################
+# functions to add table features #
+###################################
 
 
-def agg_interval_table(stock_set: set(), interval: str) -> None:
+# candle parts percentages
+def candle_parts_pcts(o, c, h, l):
+    full = h - l
+    if full == 0:
+        # If full is zero, return 0 for all components to avoid division by zero
+        return 0, 0, 0
+    body = abs(o - c)
+    if o > c:
+        top_wick = h - o
+        bottom_wick = c - l
+    else:
+        top_wick = h - c
+        bottom_wick = o - l
+    return top_wick / full, body / full, bottom_wick / full
+
+
+# previous close and open gap % of pervious candle size
+def gap_up_down_pct(o, pc, ph, pl):
+    if (o == pc) or (ph == pl):
+        return 0
+    else:
+        return (o - pc) / (ph - pl)
+    
+    
+# z-score calculation
+def zscore(x, mu, stdev):
+    if stdev == 0:
+        return 0
+    else:
+        return (x - mu) / stdev
+
+
+# compute kelly criterion
+def kelly_c(p, l=1, g=2.5):     
+    return list(map(lambda x:(x / l - (1 - x) / g), p))
+
+    
+#############################################
+# Functions for download and loading tables #
+#############################################
+
+
+def agg_interval_table(symbol: str, interval: str) -> None:
     ...
 
-def download(symbol, interval):
+
+def download(symbol: str, interval:str) -> None:
 
     try:
         stock = yf.Ticker(symbol)
@@ -69,8 +112,9 @@ def download(symbol, interval):
         
     except Exception as e:
         logging.error(f'Failed to download ticker {symbol} due to: {e}')
+
     
-def download_interval_all(interval: str, processes: int = 1) -> set():
+def download_interval_process(interval: str, processes: int = 1) -> set():
 
     stocks_set = etf_top_stocks(*etf_list)
 
@@ -80,6 +124,7 @@ def download_interval_all(interval: str, processes: int = 1) -> set():
         pool.starmap(download, params)
 
     return stocks_set
+
 
 def etf_top_stocks(*tickers: str) -> set:
     """
@@ -113,6 +158,14 @@ def etf_top_stocks(*tickers: str) -> set:
 
     return top_stocks
 
+
+def table_features(symbol: str, interval: str) -> None:
+
+    stock_table = load_raw(symbol, interval)
+
+    # moving averages
+    stock_table['5sma'] = stoc
+    
 
 def load_raw(symbol, interval):
     return pd.read_pickle(f'./data_raw/{symbol}_{interval}_df.pkl')
