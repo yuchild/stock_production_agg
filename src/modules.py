@@ -7,13 +7,15 @@ import matplotlib.pyplot as plt
 import logging
 import multiprocessing
 from datetime import datetime, timedelta
+import logging
+import time
 
 # Set yfinance logging level to ERROR to suppress DEBUG logs
 logging.getLogger("yfinance").setLevel(logging.ERROR)
 
-#################
-# ETL functions #
-#################
+##############
+# ETF Basket #
+##############
 
 
 etf_list = ['voo', 'vgt', 'vde', 'vpu', 'vdc', 'vfh', 'vht', 'vym', 'vox', 'vb', 'vo', 'vv', 'vug', 'vtv']
@@ -24,37 +26,51 @@ etf_list = ['voo', 'vgt', 'vde', 'vpu', 'vdc', 'vfh', 'vht', 'vym', 'vox', 'vb',
 #################
 
 
-def download(symbol, interval):
-    
-    stock = yf.Ticker(symbol)
-    
-    if interval in {'5m','15m','1h',}:
-        interval_period_map = {'5m':58,
-                               '15m':58,
-                               '1h':728,
-                              }
-        today = datetime.today().date()
-        start = today - timedelta(days=interval_period_map[interval])
-        stock_df = stock.history(interval=interval,
-                                 start=str(start),
-                                 end=None,
-                                 # period=period,
-                                 auto_adjust=False,
-                                 prepost=True, # include aftermarket hours
-                                )
-        
-    else:
-        stock_df = stock.history(interval=interval,
-                         period='max',
-                         auto_adjust=False,
-                         prepost=True, # include aftermarket hours
-                        )
-    
-    stock_df.columns = stock_df.columns.str.lower().str.replace(' ', '_')
-    stock_df.to_pickle(f'./data_raw/{symbol}_{interval}_df.pkl')
+def agg_interval_table(stock_set: set(), interval: str) -> None:
+    ...
 
+def download(symbol, interval):
+
+    try:
+        stock = yf.Ticker(symbol)
+        
+        if interval in {'5m','15m','1h',}:
+            interval_period_map = {'5m':58,
+                                   '15m':58,
+                                   '1h':728,
+                                  }
+            today = datetime.today().date()
+            start = today - timedelta(days=interval_period_map[interval])
+            stock_df = stock.history(interval=interval,
+                                     start=str(start),
+                                     end=None,
+                                     # period=period,
+                                     auto_adjust=False,
+                                     prepost=True, # include aftermarket hours
+                                    )
+            
+        else:
+            stock_df = stock.history(interval=interval,
+                             period='max',
+                             auto_adjust=False,
+                             prepost=True, # include aftermarket hours
+                            )
+
+        # Check if data is returned
+        if stock_df.empty:
+            logging.warning(f'No data found for ticker {symbol} with interval {interval}.')
+            
+        stock_df.columns = stock_df.columns.str.lower().str.replace(' ', '_')
+        stock_df.to_pickle(f'./data_raw/{symbol}_{interval}_df.pkl')
+        logging.info(f'Downloaded data for {symbol} successfully.')
+
+        # Throttle requirests: wirte for 0.25 second before each call
+        time.sleep(0.1)
+        
+    except Exception as e:
+        logging.error(f'Failed to download ticker {symbol} due to: {e}')
     
-def download_interval_all(interval: str, processes: int) -> None:
+def download_interval_all(interval: str, processes: int = 1) -> set():
 
     stocks_set = etf_top_stocks(*etf_list)
 
@@ -62,7 +78,8 @@ def download_interval_all(interval: str, processes: int) -> None:
 
     with multiprocessing.Pool(processes=processes) as pool:
         pool.starmap(download, params)
-    
+
+    return stocks_set
 
 def etf_top_stocks(*tickers: str) -> set:
     """
