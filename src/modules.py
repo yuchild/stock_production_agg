@@ -21,9 +21,9 @@ logging.getLogger("yfinance").setLevel(logging.ERROR)
 etf_list = ['voo', 'vgt', 'vde', 'vpu', 'vdc', 'vfh', 'vht', 'vym', 'vox', 'vb', 'vo', 'vv', 'vug', 'vtv']
 
 
-###################################
-# functions to add table features #
-###################################
+#########################################
+# functions to calculate table features #
+#########################################
 
 
 # candle parts percentages
@@ -40,6 +40,14 @@ def candle_parts_pcts(o, c, h, l):
         top_wick = h - c
         bottom_wick = o - l
     return top_wick / full, body / full, bottom_wick / full
+
+
+# calculates crossovers 
+def crossover(slow_col, fast_col) -> int:
+    if fast_col > slow_col:
+        return 1
+    else:
+        return -1
 
 
 # previous close and open gap % of pervious candle size
@@ -66,10 +74,6 @@ def kelly_c(p, l=1, g=2.5):
 #############################################
 # Functions for download and loading tables #
 #############################################
-
-
-def agg_interval_table(symbol: str, interval: str) -> None:
-    ...
 
 
 def download(symbol: str, interval:str) -> None:
@@ -157,14 +161,6 @@ def etf_top_stocks(*tickers: str) -> set:
             print(f'Error fetching data for {ticker}: {e}')
 
     return top_stocks
-
-
-def table_features(symbol: str, interval: str) -> None:
-
-    stock_table = load_raw(symbol, interval)
-
-    # moving averages
-    stock_table['5sma'] = stoc
     
 
 def load_raw(symbol, interval):
@@ -174,6 +170,39 @@ def load_raw(symbol, interval):
 def load_model_df(symbol, interval):
     return pd.read_pickle(f'./data_transformed/{symbol}_{interval}_model_df.pkl')
 
-    
+
+#########################################
+# functions to transform table features #
+#########################################
+
+
+def agg_interval_table(symbol: str, interval: str) -> None:
+    ...
+
+
+def make_table_features(symbol: str, interval: str) -> None:
+
+    stock_table = load_raw(symbol, interval)
+
+    # adj_close moving avgs sma 20, 10, 5
+    stock_table['sma20'] = stock_table['adj_close'].rolling(window=20).mean().copy()
+    stock_table['sma10'] = stock_table['adj_close'].rolling(window=10).mean().copy()
+    stock_table['sma5'] = stock_table['adj_close'].rolling(window=5).mean().copy()
+    stock_table['slow_sma_signal'] = stock_table.apply(lambda row: crossover(row['sma_20'], row['sma_10']), axis=1).copy()
+    stock_table['fast_sma_signal'] = stock_table.apply(lambda row: crossover(row['sma_10'], row['sma_5']), axis=1).copy()
+
+    # adj_close moving stdev 20, 10, 5
+    stock_table['stdev20'] = stock_table['adj_close'].rolling(window=20).std().copy()
+    stock_table['stdev10'] = stock_table['adj_close'].rolling(window=10).std().copy()
+    stock_table['stdev5'] = stock_table['adj_close'].rolling(window=5).std().copy()
+
+    # volume moving stdev 20, 10, 5
+    stock_table['vol_stdev20'] = stock_table['volume'].rolling(window=20).std().copy()
+    stock_table['vol_stdev10'] = stock_table['volume'].rolling(window=10).std().copy()
+    stock_table['vol_stdev5'] = stock_table['volume'].rolling(window=5).std().copy()
+
+
+
+
 if __name__ == '__main__':
     ...
