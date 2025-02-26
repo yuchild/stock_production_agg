@@ -108,6 +108,7 @@ def download(symbol: str, interval:str) -> None:
             logging.warning(f'No data found for ticker {symbol} with interval {interval}.')
             
         stock_df.columns = stock_df.columns.str.lower().str.replace(' ', '_')
+        stock_df = stock_df.drop(['dividends', 'stock_splits'], axis=1)
         stock_df.to_pickle(f'./data_raw/{symbol}_{interval}_df.pkl')
         logging.info(f'Downloaded data for {symbol} successfully.')
 
@@ -176,7 +177,7 @@ def load_model_df(symbol, interval):
 #########################################
 
 
-def agg_interval_table(symbol: str, interval: str) -> None:
+def make_table_features_process(symbol: str, interval: str) -> None:
     ...
 
 
@@ -201,8 +202,77 @@ def make_table_features(symbol: str, interval: str) -> None:
     stock_table['vol_stdev10'] = stock_table['volume'].rolling(window=10).std().copy()
     stock_table['vol_stdev5'] = stock_table['volume'].rolling(window=5).std().copy()
 
+     # candle parts %'s
+    stock_table[['pct_top_wick', 'pct_body', 'pct_bottom_wick']] = stock_table.apply(lambda row: candle_parts_pcts(row['open'], row['close'], row['high'],  row['low']), axis=1, result_type='expand').copy()
 
+    # stdev of candel parts 20, 10, 5
+    stock_table['top_stdev20'] = stock_table['pct_top_wick'].rolling(window=20).std().copy() 
+    stock_table['body_stdev20'] = stock_table['pct_body'].rolling(window=20).std().copy() 
+    stock_table['bottom_stdev20'] = stock_table['pct_bottom_wick'].rolling(window=20).std().copy()
 
+    stock_table['top_stdev10'] = stock_table['pct_top_wick'].rolling(window=10).std().copy() 
+    stock_table['body_stdev10'] = stock_table['pct_body'].rolling(window=10).std().copy() 
+    stock_table['bottom_stdev10'] = stock_table['pct_bottom_wick'].rolling(window=10).std().copy()
 
+    stock_table['top_stdev5'] = stock_table['pct_top_wick'].rolling(window=5).std().copy() 
+    stock_table['body_stdev5'] = stock_table['pct_body'].rolling(window=5).std().copy() 
+    stock_table['bottom_stdev5'] = dstock_tablef['pct_bottom_wick'].rolling(window=5).std().copy()
+
+    # % gap btwn current open relative to previous candle size
+    stock_table['pc'] = stock_table['close'].shift(1).copy()
+    stock_table['ph'] = stock_table['high'].shift(1).copy()
+    stock_table['pl'] = stock_table['low'].shift(1).copy()
+    stock_table['pct_gap_up_down'] = stock_table.apply(lambda row: gap_up_down_pct(row['open'], row['pc'], row['ph'], row['pl']), axis=1, result_type='expand').copy()
+
+    stock_table['pct_gap_up_down_stdev20'] = stock_table['pct_gap_up_down'].rolling(window=20).std().copy()
+    stock_table['pct_gap_up_down_stdev10'] = stock_table['pct_gap_up_down'].rolling(window=10).std().copy()
+    stock_table['pct_gap_up_down_stdev5'] = stock_table['pct_gap_up_down'].rolling(window=5).std().copy()
+
+    # day of month, week, hour of day
+    stock_table['month_of_year'] = stock_table.index.month     # Month of year
+    stock_table['day_of_month'] = stock_table.index.day        # Day of the month (1-31)
+    stock_table['day_of_week'] = stock_table.index.weekday     # Day of the week (0 = Monday, 6 = Sunday)
+    stock_table['hour_of_day'] = stock_table.index.hour        # Hour of the day (0-23)
+
+    #target column: direction: -1, 0, 1
+    stock_table['adj_close_pctc'] = stock_table['adj_close'].pct_change(fill_method=None)
+    stock_table['direction'] = pd.qcut(stock_table['adj_close_pctc'], q=3, labels=[2, 0, 1])
+    stock_table['direction'] = stock_table['direction'].shift(-1).copy() # shift up to predict next time interval 
+
+    # save table for model building
+    df[['open', 
+        'high', 
+        'low', 
+        'close', 
+        'adj_close', 
+        'volume',
+        'slow_sma_signal',
+        'fast_sma_signal',
+        'stdev20',
+        'stdev10',
+        'stdev5',
+        'vol_stdev20',
+        'vol_stdev10',
+        'vol_stdev5',
+        'top_stdev20',
+        'top_stdev10',
+        'top_stdev5',
+        'body_stdev20',
+        'body_stdev10',
+        'body_stdev5',
+        'bottom_stdev20',
+        'bottom_stdev10',
+        'bottom_stdev5',
+        'pct_gap_up_down_stdev20',
+        'pct_gap_up_down_stdev10',
+        'pct_gap_up_down_stdev5',
+        'day_of_month',
+        'day_of_week',
+        'hour_of_day',
+        'direction',
+       ]
+      ].to_pickle(f'./data_transformed/{symbol}_{interval}_model_df.pkl')
+
+    
 if __name__ == '__main__':
     ...
