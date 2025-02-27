@@ -122,6 +122,7 @@ def download(symbol: str, interval:str) -> None:
 def download_interval_process(interval: str, processes: int = 1) -> set():
 
     stocks_set = etf_top_stocks(*etf_list)
+    stocks_set.update({'^VIX'})
 
     params = [(symbol, interval) for symbol in stocks_set]
 
@@ -177,20 +178,25 @@ def load_model_df(symbol, interval):
 #########################################
 
 
-def make_table_features_process(symbol: str, interval: str) -> None:
-    ...
-
-
 def make_table_features(symbol: str, interval: str) -> None:
 
-    stock_table = load_raw(symbol, interval)
+    # load vix table
+    vix_table = load_roaw('^VIX', interval)
 
+    # vix moving stdev 20, 10, 5
+    vix_table['stdev20'] = vix_table['adj_close'].rolling(window=20).std().copy()
+    vix_table['stdev10'] = vix_table['adj_close'].rolling(window=10).std().copy()
+    vix_table['stdev5'] = vix_table['adj_close'].rolling(window=5).std().copy()
+
+    # load stock table
+    stock_table = load_raw(symbol, interval)
+    
     # adj_close moving avgs sma 20, 10, 5
     stock_table['sma20'] = stock_table['adj_close'].rolling(window=20).mean().copy()
     stock_table['sma10'] = stock_table['adj_close'].rolling(window=10).mean().copy()
     stock_table['sma5'] = stock_table['adj_close'].rolling(window=5).mean().copy()
-    stock_table['slow_sma_signal'] = stock_table.apply(lambda row: crossover(row['sma_20'], row['sma_10']), axis=1).copy()
-    stock_table['fast_sma_signal'] = stock_table.apply(lambda row: crossover(row['sma_10'], row['sma_5']), axis=1).copy()
+    stock_table['slow_sma_signal'] = stock_table.apply(lambda row: crossover(row['sma20'], row['sma10']), axis=1).copy()
+    stock_table['fast_sma_signal'] = stock_table.apply(lambda row: crossover(row['sma10'], row['sma5']), axis=1).copy()
 
     # adj_close moving stdev 20, 10, 5
     stock_table['stdev20'] = stock_table['adj_close'].rolling(window=20).std().copy()
@@ -216,7 +222,7 @@ def make_table_features(symbol: str, interval: str) -> None:
 
     stock_table['top_stdev5'] = stock_table['pct_top_wick'].rolling(window=5).std().copy() 
     stock_table['body_stdev5'] = stock_table['pct_body'].rolling(window=5).std().copy() 
-    stock_table['bottom_stdev5'] = dstock_tablef['pct_bottom_wick'].rolling(window=5).std().copy()
+    stock_table['bottom_stdev5'] = stock_table['pct_bottom_wick'].rolling(window=5).std().copy()
 
     # % gap btwn current open relative to previous candle size
     stock_table['pc'] = stock_table['close'].shift(1).copy()
@@ -240,38 +246,50 @@ def make_table_features(symbol: str, interval: str) -> None:
     stock_table['direction'] = stock_table['direction'].shift(-1).copy() # shift up to predict next time interval 
 
     # save table for model building
-    df[['open', 
-        'high', 
-        'low', 
-        'close', 
-        'adj_close', 
-        'volume',
-        'slow_sma_signal',
-        'fast_sma_signal',
-        'stdev20',
-        'stdev10',
-        'stdev5',
-        'vol_stdev20',
-        'vol_stdev10',
-        'vol_stdev5',
-        'top_stdev20',
-        'top_stdev10',
-        'top_stdev5',
-        'body_stdev20',
-        'body_stdev10',
-        'body_stdev5',
-        'bottom_stdev20',
-        'bottom_stdev10',
-        'bottom_stdev5',
-        'pct_gap_up_down_stdev20',
-        'pct_gap_up_down_stdev10',
-        'pct_gap_up_down_stdev5',
-        'day_of_month',
-        'day_of_week',
-        'hour_of_day',
-        'direction',
-       ]
-      ].to_pickle(f'./data_transformed/{symbol}_{interval}_model_df.pkl')
+    stock_table[['open', 
+                 'high', 
+                 'low', 
+                 'close', 
+                 'adj_close', 
+                 'volume',
+                 'slow_sma_signal',
+                 'fast_sma_signal',
+                 'stdev20',
+                 'stdev10',
+                 'stdev5',
+                 'vol_stdev20',
+                 'vol_stdev10',
+                 'vol_stdev5',
+                 'top_stdev20',
+                 'top_stdev10',
+                 'top_stdev5',
+                 'body_stdev20',
+                 'body_stdev10',
+                 'body_stdev5',
+                 'bottom_stdev20',
+                 'bottom_stdev10',
+                 'bottom_stdev5',
+                 'pct_gap_up_down_stdev20',
+                 'pct_gap_up_down_stdev10',
+                 'pct_gap_up_down_stdev5',
+                 'day_of_month',
+                 'day_of_week',
+                 'hour_of_day',
+                 'direction',
+                 ]
+    ].to_pickle(f'./data_transformed/{symbol}_{interval}_model_df.pkl')
+
+
+def make_table_features_process(interval: str, processes: int = 1) -> set():
+
+    stocks_set = etf_top_stocks(*etf_list)
+
+    params = [(symbol, interval) for symbol in stocks_set]
+
+    with multiprocessing.Pool(processes=processes) as pool:
+        pool.starmap(make_table_features, params)
+
+    return stocks_set
 
     
 if __name__ == '__main__':
