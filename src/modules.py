@@ -181,12 +181,12 @@ def load_model_df(symbol, interval):
 def make_table_features(symbol: str, interval: str) -> None:
 
     # load vix table
-    vix_table = load_roaw('^VIX', interval)
+    vix_table = load_raw('^VIX', interval)
 
     # vix moving stdev 20, 10, 5
-    vix_table['stdev20'] = vix_table['adj_close'].rolling(window=20).std().copy()
-    vix_table['stdev10'] = vix_table['adj_close'].rolling(window=10).std().copy()
-    vix_table['stdev5'] = vix_table['adj_close'].rolling(window=5).std().copy()
+    vix_table['vix_stdev20'] = vix_table['adj_close'].rolling(window=20).std().copy()
+    vix_table['vix_stdev10'] = vix_table['adj_close'].rolling(window=10).std().copy()
+    vix_table['vix_stdev5'] = vix_table['adj_close'].rolling(window=5).std().copy()
 
     # load stock table
     stock_table = load_raw(symbol, interval)
@@ -240,44 +240,56 @@ def make_table_features(symbol: str, interval: str) -> None:
     stock_table['day_of_week'] = stock_table.index.weekday     # Day of the week (0 = Monday, 6 = Sunday)
     stock_table['hour_of_day'] = stock_table.index.hour        # Hour of the day (0-23)
 
-    #target column: direction: -1, 0, 1
+    # target column: direction: -1, 0, 1
     stock_table['adj_close_pctc'] = stock_table['adj_close'].pct_change(fill_method=None)
     stock_table['direction'] = pd.qcut(stock_table['adj_close_pctc'], q=3, labels=[2, 0, 1])
     stock_table['direction'] = stock_table['direction'].shift(-1).copy() # shift up to predict next time interval 
 
+    # merge vix with stock table
+    df_merged = pd.merge(stock_table, 
+                         vix_table[['vix_stdev20', 'vix_stdev10', 'vix_stdev5']], 
+                         left_index=True, 
+                         right_index=True, 
+                         how='left'
+                        )
+    
     # save table for model building
-    stock_table[['open', 
-                 'high', 
-                 'low', 
-                 'close', 
-                 'adj_close', 
-                 'volume',
-                 'slow_sma_signal',
-                 'fast_sma_signal',
-                 'stdev20',
-                 'stdev10',
-                 'stdev5',
-                 'vol_stdev20',
-                 'vol_stdev10',
-                 'vol_stdev5',
-                 'top_stdev20',
-                 'top_stdev10',
-                 'top_stdev5',
-                 'body_stdev20',
-                 'body_stdev10',
-                 'body_stdev5',
-                 'bottom_stdev20',
-                 'bottom_stdev10',
-                 'bottom_stdev5',
-                 'pct_gap_up_down_stdev20',
-                 'pct_gap_up_down_stdev10',
-                 'pct_gap_up_down_stdev5',
-                 'day_of_month',
-                 'day_of_week',
-                 'hour_of_day',
-                 'direction',
-                 ]
-    ].to_pickle(f'./data_transformed/{symbol}_{interval}_model_df.pkl')
+    cols = ['open', 
+            'high', 
+            'low', 
+            'close', 
+            'adj_close',
+            'volume',
+            'slow_sma_signal',
+            'fast_sma_signal',
+            'stdev20',
+            'stdev10',
+            'stdev5',
+            'vix_stdev20', 
+            'vix_stdev10', 
+            'vix_stdev5',
+            'vol_stdev20',
+            'vol_stdev10',
+            'vol_stdev5',
+            'top_stdev20',
+            'top_stdev10',
+            'top_stdev5',
+            'body_stdev20',
+            'body_stdev10',
+            'body_stdev5',
+            'bottom_stdev20',
+            'bottom_stdev10',
+            'bottom_stdev5',
+            'pct_gap_up_down_stdev20',
+            'pct_gap_up_down_stdev10',
+            'pct_gap_up_down_stdev5',
+            'month_of_year',
+            'day_of_month',
+            'day_of_week',
+            'hour_of_day',
+            'direction',
+            ]
+    df_merged[cols].to_pickle(f'./data_transformed/{symbol}_{interval}_model_df.pkl')
 
 
 def make_table_features_process(interval: str, processes: int = 1) -> set():
