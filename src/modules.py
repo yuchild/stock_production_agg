@@ -78,7 +78,7 @@ def kelly_c(p, l=1, g=2.5):
 
 def download(symbol: str, interval:str) -> None:
 
-    try:
+    try:    
         stock = yf.Ticker(symbol)
         
         if interval in {'5m','15m','1h',}:
@@ -111,26 +111,46 @@ def download(symbol: str, interval:str) -> None:
         stock_df = stock_df.drop(['dividends', 'stock_splits'], axis=1)
         stock_df.to_pickle(f'./data_raw/{symbol}_{interval}_df.pkl')
         logging.info(f'Downloaded data for {symbol} successfully.')
-
-        # Throttle requirests: wirte for 0.25 second before each call
-        time.sleep(0.1)
         
+        # Throttle requirests: wirte for 2 second before each call
+        time.sleep(0.25)
+    
     except Exception as e:
         logging.error(f'Failed to download ticker {symbol} due to: {e}')
 
     
-def download_interval_process(interval: str, processes: int = 1) -> set():
+# def download_interval_process(interval: str, processes: int = 1) -> set():
 
+#     stocks_set = etf_top_stocks(*etf_list)
+#     stocks_set.update({'^VIX'})
+
+#     params = [(symbol, interval) for symbol in stocks_set]
+
+#     with multiprocessing.Pool(processes=processes) as pool:
+#         pool.starmap(download, params)
+
+#     return stocks_set
+
+
+def download_interval_process(interval: str, processes: int = 1) -> set:
     stocks_set = etf_top_stocks(*etf_list)
     stocks_set.update({'^VIX'})
 
     params = [(symbol, interval) for symbol in stocks_set]
 
     with multiprocessing.Pool(processes=processes) as pool:
-        pool.starmap(download, params)
+        # Submit tasks one by one with a delay before submitting the next.
+        # This way, each "core" (worker) is staggered by a sleep.
+        results = []
+        for param in params:
+            results.append(pool.apply_async(download, param))
+            time.sleep(0.1)  # <--- adjust delay as needed
+
+        # Finally, block until all tasks are completed (optional).
+        [r.get() for r in results]
 
     return stocks_set
-
+    
 
 def etf_top_stocks(*tickers: str) -> set:
     """
