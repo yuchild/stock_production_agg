@@ -9,6 +9,7 @@ import multiprocessing
 from datetime import datetime, timedelta
 import logging
 import time
+import os
 
 # Set yfinance logging level to ERROR to suppress DEBUG logs
 logging.getLogger("yfinance").setLevel(logging.ERROR)
@@ -112,42 +113,22 @@ def download(symbol: str, interval:str) -> None:
         stock_df.to_pickle(f'./data_raw/{symbol}_{interval}_df.pkl')
         logging.info(f'Downloaded data for {symbol} successfully.')
         
-        # Throttle requirests: wirte for 2 second before each call
+        # Throttle requirests: wirte for 0.25 second after each call
         time.sleep(0.25)
     
     except Exception as e:
         logging.error(f'Failed to download ticker {symbol} due to: {e}')
 
     
-# def download_interval_process(interval: str, processes: int = 1) -> set():
+def download_interval_process(interval: str, processes: int = 1) -> set():
 
-#     stocks_set = etf_top_stocks(*etf_list)
-#     stocks_set.update({'^VIX'})
-
-#     params = [(symbol, interval) for symbol in stocks_set]
-
-#     with multiprocessing.Pool(processes=processes) as pool:
-#         pool.starmap(download, params)
-
-#     return stocks_set
-
-
-def download_interval_process(interval: str, processes: int = 1) -> set:
     stocks_set = etf_top_stocks(*etf_list)
     stocks_set.update({'^VIX'})
 
     params = [(symbol, interval) for symbol in stocks_set]
 
     with multiprocessing.Pool(processes=processes) as pool:
-        # Submit tasks one by one with a delay before submitting the next.
-        # This way, each "core" (worker) is staggered by a sleep.
-        results = []
-        for param in params:
-            results.append(pool.apply_async(download, param))
-            time.sleep(0.1)  # <--- adjust delay as needed
-
-        # Finally, block until all tasks are completed (optional).
-        [r.get() for r in results]
+        pool.starmap(download, params)
 
     return stocks_set
     
@@ -196,6 +177,33 @@ def load_model_df(symbol, interval):
 #########################################
 # functions to transform table features #
 #########################################
+
+def make_master_table(stock_list: set, interval: str = '1d') -> None:
+    data_path = "./data_transformed"
+    dfs = []
+
+    for ticker in stock_list:
+        file_name = f"{ticker}_{interval}_model_df.pkl"
+        file_path = os.path.join(data_path, file_name)
+
+        # Load the pickle file into a DataFrame
+        df = pd.read_pickle(file_path)
+
+        # Drop the last row
+        df = df.iloc[:-1]
+
+        # Collect the adjusted DataFrame
+        dfs.append(df)
+
+    # Combine all dataframes into one
+    master_df = pd.concat(dfs, ignore_index=True)
+
+    # Save the combined DataFrame to a new pickle file
+    out_file_name = f"all_{interval}_model_df.pkl"
+    out_file_path = os.path.join(data_path, out_file_name)
+    master_df.to_pickle(out_file_path)
+
+    print(f"Saved combined dataframe to: {out_file_path}")
 
 
 def make_table_features(symbol: str, interval: str) -> None:
