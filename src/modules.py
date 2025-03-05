@@ -11,6 +11,15 @@ import logging
 import time
 import os
 
+import joblib
+from sklearn.compose import ColumnTransformer
+from sklearn.preprocessing import StandardScaler, OneHotEncoder
+from sklearn.pipeline import Pipeline
+from sklearn.model_selection import train_test_split
+from xgboost import XGBClassifier
+
+from sklearn.metrics import classification_report
+
 # Set yfinance logging level to ERROR to suppress DEBUG logs
 logging.getLogger("yfinance").setLevel(logging.ERROR)
 
@@ -48,7 +57,7 @@ def crossover(slow_col, fast_col) -> int:
     if fast_col > slow_col:
         return 1
     else:
-        return -1
+        return 0
 
 
 # previous close and open gap % of pervious candle size
@@ -330,6 +339,123 @@ def make_table_features_process(interval: str, processes: int = 1) -> set():
         pool.starmap(make_table_features, params)
 
     return stocks_set
+
+    
+##########################################
+# functions to model transformed dataset #
+##########################################
+
+
+def xg_boost_model(interval="1d") -> None:
+    # Path to the combined DataFrame
+    combined_df_path = f"./data_transformed/all_{interval}_model_df.pkl"
+    # Path to save the trained model
+    model_path = f"./models/xgboost_{interval}_model.pkl"
+    
+    # 1. Load Data
+    df = pd.read_pickle(combined_df_path)
+
+    # 2. Define columns
+    cols = ['slow_sma_signal',
+            'fast_sma_signal',
+            'stdev20',
+            'stdev10',
+            'stdev5',
+            'vix_stdev20', 
+            'vix_stdev10', 
+            'vix_stdev5',
+            'vol_stdev20',
+            'vol_stdev10',
+            'vol_stdev5',
+            'top_stdev20',
+            'top_stdev10',
+            'top_stdev5',
+            'body_stdev20',
+            'body_stdev10',
+            'body_stdev5',
+            'bottom_stdev20',
+            'bottom_stdev10',
+            'bottom_stdev5',
+            'pct_gap_up_down_stdev20',
+            'pct_gap_up_down_stdev10',
+            'pct_gap_up_down_stdev5',
+            'month_of_year',
+            'day_of_month',
+            'day_of_week',
+            'hour_of_day',
+            'direction',
+            ]
+    df = df[cols]  # in case there are extra columns
+
+    # 3. Split into numeric / categorical
+    categorical_cols = [
+        'slow_sma_signal',
+        'fast_sma_signal',
+        'month_of_year',
+        'day_of_month',
+        'day_of_week',
+        # 'hour_of_day',
+    ]
+    numeric_cols = [c for c in cols if c not in categorical_cols and c != 'direction']
+
+    X = df.drop(columns=['direction'])
+    y = df['direction']
+
+    # 4. Define pipeline
+    # numeric_transformer = StandardScaler()
+    categorical_transformer = OneHotEncoder(
+        handle_unknown='ignore',
+        sparse_output=True  # for a sparse matrix
+    )
+
+    preprocessor = ColumnTransformer([
+        # ("num", numeric_transformer, numeric_cols),
+        ("cat", categorical_transformer, categorical_cols),
+    ])
+
+    xgb_clf = XGBClassifier(
+        objective="multi:softmax",
+        num_class=3,
+        random_state=42,
+        use_label_encoder=False,
+        eval_metric="mlogloss",
+        n_jobs=8
+    )
+
+    pipeline = Pipeline([
+        ("preprocessor", preprocessor),
+        ("classifier", xgb_clf),
+    ])
+
+    # 5. Train/test split & fit
+    X_train, X_test, y_train, y_test = train_test_split(
+        X, y, test_size=0.2, random_state=42, stratify=y
+    )
+    pipeline.fit(X_train, y_train)
+
+    # 6. Classification report
+    y_pred = pipeline.predict(X_test)
+    print(classification_report(y_test, y_pred))
+
+    # 7. Feature importances (descending order)
+    xgb_model: XGBClassifier = pipeline.named_steps["classifier"]
+    importances = xgb_model.feature_importances_
+
+    # get_feature_names_out() requires scikit-learn ≥ 1.3 for ColumnTransformer
+    feature_names = pipeline.named_steps["preprocessor"].get_feature_names_out()
+    fi_df = pd.DataFrame({
+        "feature": feature_names,
+        "importance": importances
+    }).sort_values(by="importance", ascending=False)
+
+    print("\nFeature Importances (Descending):")
+    print(fi_df)
+
+    # 8. Save model
+    os.makedirs(os.path.dirname(model_path), exist_ok=True)
+    joblib.dump(pipeline, model_path)
+    print(f"\nModel saved at: {model_path}")
+
 
     
 if __name__ == '__main__':
