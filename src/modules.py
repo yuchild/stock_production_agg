@@ -15,6 +15,7 @@ import joblib
 from sklearn.compose import ColumnTransformer
 from sklearn.preprocessing import StandardScaler, OneHotEncoder
 from sklearn.pipeline import Pipeline
+from sklearn.cluster import KMeans
 from sklearn.model_selection import train_test_split
 from xgboost import XGBClassifier
 
@@ -290,6 +291,21 @@ def make_table_features(symbol: str, interval: str) -> None:
                          how='left'
                         )
     
+    # clustering... select columns ending with 'z##'
+    z_columns = ['pct_top_wick', 'pct_body', 'pct_bottom_wick', 'pct_gap_up_down']
+    
+    # drop nulls for kmeans fit
+    data_z = df_merged[z_columns].dropna().copy() 
+
+    # KMeans stratification
+    optimal_k = 7  # Replace with the optimal number from the elbow plot
+    
+    kmeans = KMeans(n_clusters=optimal_k, random_state=42)
+    data_z['cluster'] = kmeans.fit_predict(data_z)
+    
+    # Add the 'cluster' column back to the original DataFrame
+    df_merged['candle_cluster'] = data_z['cluster']
+    
     # save table for model building
     cols = ['open', 
             'high', 
@@ -324,6 +340,7 @@ def make_table_features(symbol: str, interval: str) -> None:
             'day_of_month',
             'day_of_week',
             'hour_of_day',
+            'candle_cluster',
             'direction',
             ]
     df_merged[cols].to_pickle(f'./data_transformed/{symbol}_{interval}_model_df.pkl')
@@ -383,6 +400,7 @@ def xg_boost_model(interval="1d") -> None:
             'day_of_month',
             'day_of_week',
             'hour_of_day',
+            'candle_cluster',
             'direction',
             ]
     df = df[cols]  # in case there are extra columns
@@ -394,7 +412,8 @@ def xg_boost_model(interval="1d") -> None:
         'month_of_year',
         'day_of_month',
         'day_of_week',
-        # 'hour_of_day',
+        'hour_of_day',
+        'candle_cluster',
     ]
     numeric_cols = [c for c in cols if c not in categorical_cols and c != 'direction']
 
