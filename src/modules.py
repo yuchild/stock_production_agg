@@ -10,8 +10,9 @@ from datetime import datetime, timedelta
 import logging
 import time
 import os
-
+import pickle
 import joblib
+
 from sklearn.compose import ColumnTransformer
 from sklearn.preprocessing import StandardScaler, OneHotEncoder
 from sklearn.pipeline import Pipeline
@@ -475,6 +476,73 @@ def xg_boost_model(interval="1d") -> None:
     joblib.dump(pipeline, model_path)
     print(f"\nModel saved at: {model_path}")
 
+##########################################
+# functions to use model for predictions #
+##########################################
+
+def model_prospect(symbol: str, interval: str) -> None:
+
+    # Assume these functions are defined elsewhere
+    download(symbol, interval)
+    make_table_features(symbol, interval)
+    df_prospect = load_model_df(symbol, interval)
+    
+    # Define columns (make sure these match your data)
+    cols = ['slow_sma_signal',
+            'fast_sma_signal',
+            'stdev20',
+            'stdev10',
+            'stdev5',
+            'vix_stdev20', 
+            'vix_stdev10', 
+            'vix_stdev5',
+            'vol_stdev20',
+            'vol_stdev10',
+            'vol_stdev5',
+            'top_stdev20',
+            'top_stdev10',
+            'top_stdev5',
+            'body_stdev20',
+            'body_stdev10',
+            'body_stdev5',
+            'bottom_stdev20',
+            'bottom_stdev10',
+            'bottom_stdev5',
+            'pct_gap_up_down_stdev20',
+            'pct_gap_up_down_stdev10',
+            'pct_gap_up_down_stdev5',
+            'month_of_year',
+            'day_of_month',
+            'day_of_week',
+            'hour_of_day',
+            'candle_cluster',
+            'direction']
+    
+    df_prospect = df_prospect[cols].copy()  # Use only the needed columns
+    
+    # Prepare the raw feature input (drop the target column)
+    X = df_prospect.drop(columns=['direction'])
+    
+    # Instead of converting to a NumPy array, preserve DataFrame structure
+    X_input = X.iloc[[-1]]
+    
+    # Load the saved pipeline model.
+    model = joblib.load(f'./models/xgboost_{interval}_model.pkl')
+    
+    # Use the saved pipeline to predict (it will perform its own transformation).
+    prediction = model.predict(X_input)
+    probabilities = model.predict_proba(X_input)
+    
+    # Map numerical predictions to text labels.
+    label_mapping = {0: "no_change", 1: "up", 2: "down"}
+    predicted_label = label_mapping.get(prediction[0], "unknown")
+    
+    print("\nModel Prediction:")
+    print("Predicted class:", predicted_label)
+    
+    print("\nModel Probabilities:")
+    for class_num, prob in zip([0, 1, 2], probabilities[0]):
+        print(f"{label_mapping[class_num]} ({class_num}): {prob:.4f}")
 
     
 if __name__ == '__main__':
