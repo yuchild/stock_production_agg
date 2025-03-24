@@ -22,6 +22,9 @@ from xgboost import XGBClassifier
 
 from sklearn.metrics import classification_report
 
+from datetime import datetime
+from zoneinfo import ZoneInfo
+
 # Set yfinance logging level to ERROR to suppress DEBUG logs
 logging.getLogger("yfinance").setLevel(logging.ERROR)
 
@@ -537,13 +540,28 @@ def model_prospect(symbol: str, interval: str) -> None:
     label_mapping = {0: "no_change", 1: "up", 2: "down"}
     predicted_label = label_mapping.get(prediction[0], "unknown")
     
-    print("\nModel Prediction:")
-    print("Predicted class:", predicted_label)
+    print(f"\nModel Prediction {interval} {symbol.upper()}:")
+    print(f"Predicted Next {interval} Movement: {predicted_label.upper()}")
     
-    print("\nModel Probabilities:")
+    print("\nModel Prediction Probabilities:")
     for class_num, prob in zip([0, 1, 2], probabilities[0]):
         print(f"{label_mapping[class_num]} ({class_num}): {prob:.4f}")
 
-    
+    print(f"\nLast Entry {interval} {symbol.upper()} Datetime Used for Prediction:\nNOTE: It's in or contains the full {interval} time interval.")
+    # Original UTC time
+    dt_utc = datetime.fromisoformat(str(X_input.index[0]))
+    # Convert to Eastern Time (ET) and Pacific Time (PT)
+    dt_est = dt_utc.astimezone(ZoneInfo("America/New_York"))
+    dt_pdt = dt_utc.astimezone(ZoneInfo("America/Los_Angeles"))
+    # Format with AM/PM
+    print("EST:", dt_est.strftime('%Y-%m-%d %I:%M:%S %p %Z%z'))
+    print("PDT:", dt_pdt.strftime('%Y-%m-%d %I:%M:%S %p %Z%z'))
+
+def arima_model(symbol: str, interval: str) -> None:
+    ...
+
+
+
+
 if __name__ == '__main__':
     ...
