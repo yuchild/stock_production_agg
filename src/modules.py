@@ -532,7 +532,7 @@ def model_prospect(symbol: str, interval: str) -> None:
     probabilities = model.predict_proba(X_input)
     
     # Map numerical predictions to text labels.
-    label_mapping = {0: "down", 1: "up", 2: "no_change"} # 
+    label_mapping = {0: "no_change", 2: "down", 1: "up"} # 
     predicted_label = label_mapping.get(prediction[0], "unknown")
     
     print(f"\nModel Prediction {interval} {symbol.upper()}:")
