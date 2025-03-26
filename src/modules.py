@@ -126,9 +126,6 @@ def download(symbol: str, interval:str) -> None:
         stock_df = stock_df.drop(['dividends', 'stock_splits'], axis=1)
         stock_df.to_pickle(f'./data_raw/{symbol}_{interval}_df.pkl')
         logging.info(f'Downloaded data for {symbol} successfully.')
-        
-        # Throttle requirests: wirte for 0.25 second after each call
-        time.sleep(0.25)
     
     except Exception as e:
         logging.error(f'Failed to download ticker {symbol} due to: {e}')
@@ -147,7 +144,7 @@ def download_interval_process(interval: str, processes: int = 1) -> set():
     return stocks_set
     
 
-def etf_top_stocks(*tickers: str) -> set:
+def etf_top_stocks(*tickers: str) -> set():
     """
     Returns a set of top stock symbols from ETF tickers provided
     Parameters:
@@ -284,7 +281,7 @@ def make_table_features(symbol: str, interval: str) -> None:
 
     # target column: direction: -1, 0, 1
     stock_table['adj_close_pctc'] = stock_table['adj_close'].pct_change(fill_method=None)
-    stock_table['direction'] = pd.qcut(stock_table['adj_close_pctc'], q=3, labels=[2, 0, 1])
+    stock_table['direction'] = pd.qcut(stock_table['adj_close_pctc'], q=3, labels=[2, 0, 1]) #
     stock_table['direction'] = stock_table['direction'].shift(-1).copy() # shift up to predict next time interval 
 
     # merge vix with stock table
@@ -302,7 +299,7 @@ def make_table_features(symbol: str, interval: str) -> None:
     data_z = df_merged[z_columns].dropna().copy() 
 
     # KMeans stratification
-    optimal_k = 7  # Replace with the optimal number from the elbow plot
+    optimal_k = 3  # Replace with the optimal number from the elbow plot
     
     kmeans = KMeans(n_clusters=optimal_k, random_state=42)
     data_z['cluster'] = kmeans.fit_predict(data_z)
@@ -350,16 +347,14 @@ def make_table_features(symbol: str, interval: str) -> None:
     df_merged[cols].to_pickle(f'./data_transformed/{symbol}_{interval}_model_df.pkl')
 
 
-def make_table_features_process(interval: str, processes: int = 1) -> set():
+def make_table_features_process(stock_set: set(), interval: str, processes: int = 1) -> None:
 
-    stocks_set = etf_top_stocks(*etf_list)
+    # stocks_set = etf_top_stocks(*etf_list)
 
-    params = [(symbol, interval) for symbol in stocks_set]
+    params = [(symbol, interval) for symbol in stock_set]
 
     with multiprocessing.Pool(processes=processes) as pool:
         pool.starmap(make_table_features, params)
-
-    return stocks_set
 
     
 ##########################################
@@ -537,14 +532,14 @@ def model_prospect(symbol: str, interval: str) -> None:
     probabilities = model.predict_proba(X_input)
     
     # Map numerical predictions to text labels.
-    label_mapping = {0: "no_change", 1: "up", 2: "down"}
+    label_mapping = {0: "down", 1: "up", 2: "no_change"} # 
     predicted_label = label_mapping.get(prediction[0], "unknown")
     
     print(f"\nModel Prediction {interval} {symbol.upper()}:")
     print(f"Predicted Next {interval} Movement: {predicted_label.upper()}")
     
     print("\nModel Prediction Probabilities:")
-    for class_num, prob in zip([0, 1, 2], probabilities[0]):
+    for class_num, prob in zip([0, 1, 2], probabilities[0]): #
         print(f"{label_mapping[class_num]} ({class_num}): {prob:.4f}")
 
     print(f"\nLast Entry {interval} {symbol.upper()} Datetime Used for Prediction:\nNOTE: It's in or contains the full {interval} time interval.")
