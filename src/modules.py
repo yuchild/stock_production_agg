@@ -344,7 +344,7 @@ def make_table_features(symbol: str, interval: str) -> None:
             'candle_cluster',
             'direction',
             ]
-    df_merged[cols].to_pickle(f'./data_transformed/{symbol}_{interval}_model_df.pkl')
+    df_merged[cols].iloc[:-50].to_pickle(f'./data_transformed/{symbol}_{interval}_model_df.pkl')
 
 
 def make_table_features_process(stock_set: set(), interval: str, processes: int = 1) -> None:
@@ -551,6 +551,8 @@ def model_prospect(symbol: str, interval: str) -> None:
     # Format with AM/PM
     print("EST:", dt_est.strftime('%Y-%m-%d %I:%M:%S %p %Z%z'))
     print("PDT:", dt_pdt.strftime('%Y-%m-%d %I:%M:%S %p %Z%z'))
+
+    
 
 def arima_model(symbol: str, interval: str) -> None:
     ...
