@@ -18,7 +18,10 @@ from sklearn.preprocessing import StandardScaler, OneHotEncoder
 from sklearn.pipeline import Pipeline
 from sklearn.cluster import KMeans
 from sklearn.model_selection import train_test_split
+
 from xgboost import XGBClassifier
+from sklearn.feature_selection import SelectFromModel
+from sklearn.preprocessing import OneHotEncoder
 
 from sklearn.metrics import classification_report
 
@@ -371,7 +374,7 @@ def xg_boost_model(interval="1d") -> None:
     # 1. Load Data
     df = pd.read_pickle(combined_df_path)
 
-    # 2. Define columns
+    # 2. Define columns (in case there are extra columns)
     cols = ['slow_sma_signal',
             'fast_sma_signal',
             'stdev20',
@@ -402,9 +405,13 @@ def xg_boost_model(interval="1d") -> None:
             'candle_cluster',
             'direction',
             ]
-    df = df[cols]  # in case there are extra columns
+    df = df[cols]
 
-    # 3. Split into numeric / categorical
+    # 3. Split into features and target
+    X = df.drop(columns=['direction'])
+    y = df['direction']
+
+    # 4. Define categorical columns and their transformer.
     categorical_cols = [
         'slow_sma_signal',
         'fast_sma_signal',
@@ -414,65 +421,82 @@ def xg_boost_model(interval="1d") -> None:
         'hour_of_day',
         'candle_cluster',
     ]
-    numeric_cols = [c for c in cols if c not in categorical_cols and c != 'direction']
-
-    X = df.drop(columns=['direction'])
-    y = df['direction']
-
-    # 4. Define pipeline
-    # numeric_transformer = StandardScaler()
+    # Here we set sparse_output to False so that subsequent feature selection works on a dense array.
     categorical_transformer = OneHotEncoder(
         handle_unknown='ignore',
-        sparse_output=True  # for a sparse matrix
+        sparse_output=False
     )
 
     preprocessor = ColumnTransformer([
-        # ("num", numeric_transformer, numeric_cols),
         ("cat", categorical_transformer, categorical_cols),
     ])
 
+    # 5. Set up the feature selection step.
+    # We use an XGBoost estimator with L1 regularization (reg_alpha > 0) so that less important features
+    # are given coefficients of (or near) zero.
+    xgb_selector = XGBClassifier(
+        objective="multi:softmax",
+        num_class=3,
+        random_state=42,
+        use_label_encoder=False,
+        eval_metric="mlogloss",
+        n_jobs=8,
+        reg_alpha=1.0,  # L1 regularization parameter
+        reg_lambda=1.0, # L2 regularization parameter (optional)
+    )
+    # The threshold parameter ('median') means features with importance below the median will be discarded.
+    feature_selector = SelectFromModel(estimator=xgb_selector, threshold="median", prefit=False)
+
+    # 6. Define the main classifier.
     xgb_clf = XGBClassifier(
         objective="multi:softmax",
         num_class=3,
         random_state=42,
         use_label_encoder=False,
         eval_metric="mlogloss",
-        n_jobs=8
+        n_jobs=8,
+        reg_alpha=1.0,
+        reg_lambda=1.0,
     )
 
+    # 7. Build the pipeline.
     pipeline = Pipeline([
         ("preprocessor", preprocessor),
+        ("feature_selection", feature_selector),
         ("classifier", xgb_clf),
     ])
 
-    # 5. Train/test split & fit
+    # 8. Train/test split & fit
     X_train, X_test, y_train, y_test = train_test_split(
         X, y, test_size=0.2, random_state=42, stratify=y
     )
     pipeline.fit(X_train, y_train)
 
-    # 6. Classification report
+    # 9. Evaluate the model.
     y_pred = pipeline.predict(X_test)
     print(classification_report(y_test, y_pred))
 
-    # 7. Feature importances (descending order)
-    xgb_model: XGBClassifier = pipeline.named_steps["classifier"]
-    importances = xgb_model.feature_importances_
-
-    # get_feature_names_out() requires scikit-learn ≥ 1.3 for ColumnTransformer
+    # 10. Get feature importances from the classifier.
+    # Get the original feature names from the preprocessor.
     feature_names = pipeline.named_steps["preprocessor"].get_feature_names_out()
+    # Retrieve the support mask from the feature selection step.
+    mask = pipeline.named_steps["feature_selection"].get_support()
+    selected_features = feature_names[mask]
+    importances = pipeline.named_steps["classifier"].feature_importances_
+
     fi_df = pd.DataFrame({
-        "feature": feature_names,
+        "feature": selected_features,
         "importance": importances
     }).sort_values(by="importance", ascending=False)
 
     print("\nFeature Importances (Descending):")
     print(fi_df)
 
-    # 8. Save model
+    # 11. Save the trained pipeline.
     os.makedirs(os.path.dirname(model_path), exist_ok=True)
     joblib.dump(pipeline, model_path)
     print(f"\nModel saved at: {model_path}")
+    
 
 ##########################################
 # functions to use model for predictions #
