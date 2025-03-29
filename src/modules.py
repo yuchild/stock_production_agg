@@ -552,6 +552,81 @@ def model_prospect(symbol: str, interval: str) -> None:
     print("EST:", dt_est.strftime('%Y-%m-%d %I:%M:%S %p %Z%z'))
     print("PDT:", dt_pdt.strftime('%Y-%m-%d %I:%M:%S %p %Z%z'))
 
+
+def model_validation(symbol: str, interval: str):
+    
+    # Assume these functions are defined elsewhere
+    download(symbol, interval)
+    make_table_features(symbol, interval)
+    df_prospect = load_model_df(symbol, interval)
+    
+    # Define columns (make sure these match your data)
+    cols = ['slow_sma_signal',
+            'fast_sma_signal',
+            'stdev20',
+            'stdev10',
+            'stdev5',
+            'vix_stdev20', 
+            'vix_stdev10', 
+            'vix_stdev5',
+            'vol_stdev20',
+            'vol_stdev10',
+            'vol_stdev5',
+            'top_stdev20',
+            'top_stdev10',
+            'top_stdev5',
+            'body_stdev20',
+            'body_stdev10',
+            'body_stdev5',
+            'bottom_stdev20',
+            'bottom_stdev10',
+            'bottom_stdev5',
+            'pct_gap_up_down_stdev20',
+            'pct_gap_up_down_stdev10',
+            'pct_gap_up_down_stdev5',
+            'month_of_year',
+            'day_of_month',
+            'day_of_week',
+            'hour_of_day',
+            'candle_cluster',
+            'direction']
+    
+    df_prospect = df_prospect[cols].copy()  # Use only the needed columns
+    
+    # Prepare the raw feature input (drop the target column) for the last 50 rows (from -51 to -2)
+    X_dir = df_prospect['direction'].iloc[-51:-1].copy()
+    X = df_prospect.drop(columns=['direction'])
+    X_input = X.iloc[-51:-1]  # selects 50 rows, excluding the very last row
+    
+    # Load the saved pipeline model.
+    model = joblib.load(f'./models/xgboost_{interval}_model.pkl')
+    
+    # Predict using the pipeline on multiple rows.
+    predictions = model.predict(X_input)
+    probabilities = model.predict_proba(X_input)
+    
+    # Map numerical predictions to text labels.
+    label_mapping = {0: "no_change", 2: "down", 1: "up"}
+    X_dir_labels = [label_mapping.get(x, "unknown") for x in X_dir]
+    predicted_labels = [label_mapping.get(pred, "unknown") for pred in predictions]
+    
+    # Create a copy of the corresponding rows from df_prospect
+    df_validation = df_prospect.iloc[-51:-1].copy()
+    
+    # Add new columns for prediction and class probabilities.
+    df_validation['direction'] = X_dir_labels
+    df_validation['prediction'] = predicted_labels
+    df_validation['no_change_prob'] = probabilities[:, 0]
+    df_validation['up_prob'] = probabilities[:, 1]
+    df_validation['down_prob'] = probabilities[:, 2]
+
+    # Define the matching function
+    def match_columns(val1, val2):
+        return 1 if val1 == val2 else 0
+        
+    df_validation['dir_pred_match'] = df_validation.apply(lambda row: match_columns(row['direction'], row['prediction']), axis=1)
+    
+    return df_validation
     
 
 def arima_model(symbol: str, interval: str) -> None:
