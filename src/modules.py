@@ -17,7 +17,7 @@ from sklearn.compose import ColumnTransformer
 from sklearn.preprocessing import StandardScaler, OneHotEncoder
 from sklearn.pipeline import Pipeline
 from sklearn.cluster import KMeans
-from sklearn.model_selection import train_test_split
+from sklearn.model_selection import train_test_split, GridSearchCV
 
 from xgboost import XGBClassifier
 from sklearn.feature_selection import SelectFromModel
@@ -30,6 +30,9 @@ from zoneinfo import ZoneInfo
 
 # Set yfinance logging level to ERROR to suppress DEBUG logs
 logging.getLogger("yfinance").setLevel(logging.ERROR)
+
+import warnings
+warnings.filterwarnings("ignore", message=".*use_label_encoder.*")
 
 ##############
 # etf basket #
@@ -365,7 +368,7 @@ def make_table_features_process(stock_set: set(), interval: str, processes: int 
 ##########################################
 
 
-def xg_boost_model(interval="1d") -> None:
+def xg_boost_model(interval="1d", grid_search_on=False) -> None:
     # Path to the combined DataFrame
     combined_df_path = f"./data_transformed/all_{interval}_model_df.pkl"
     # Path to save the trained model
@@ -421,7 +424,7 @@ def xg_boost_model(interval="1d") -> None:
         'hour_of_day',
         'candle_cluster',
     ]
-    # Here we set sparse_output to False so that subsequent feature selection works on a dense array.
+    # Set sparse_output to False so that subsequent feature selection works on a dense array.
     categorical_transformer = OneHotEncoder(
         handle_unknown='ignore',
         sparse_output=False
@@ -431,20 +434,21 @@ def xg_boost_model(interval="1d") -> None:
         ("cat", categorical_transformer, categorical_cols),
     ])
 
+    # When grid search is on, reduce parallelism to avoid nested parallelism issues.
+    clf_n_jobs = 1 if grid_search_on else 8
+
     # 5. Set up the feature selection step.
-    # We use an XGBoost estimator with L1 regularization (reg_alpha > 0) so that less important features
-    # are given coefficients of (or near) zero.
+    # Use an XGBoost estimator with L1 regularization so that less important features are shrunk.
     xgb_selector = XGBClassifier(
         objective="multi:softmax",
         num_class=3,
         random_state=42,
-        use_label_encoder=False,
         eval_metric="mlogloss",
-        n_jobs=8,
-        reg_alpha=1.0,  # L1 regularization parameter
-        reg_lambda=1.0, # L2 regularization parameter (optional)
+        n_jobs=clf_n_jobs,
+        reg_alpha=1.0,
+        reg_lambda=1.0,
     )
-    # The threshold parameter ('median') means features with importance below the median will be discarded.
+    # The threshold parameter decides which features to keep.
     feature_selector = SelectFromModel(estimator=xgb_selector, threshold="median", prefit=False)
 
     # 6. Define the main classifier.
@@ -452,9 +456,8 @@ def xg_boost_model(interval="1d") -> None:
         objective="multi:softmax",
         num_class=3,
         random_state=42,
-        use_label_encoder=False,
         eval_metric="mlogloss",
-        n_jobs=8,
+        n_jobs=clf_n_jobs,
         reg_alpha=1.0,
         reg_lambda=1.0,
     )
@@ -466,23 +469,41 @@ def xg_boost_model(interval="1d") -> None:
         ("classifier", xgb_clf),
     ])
 
-    # 8. Train/test split & fit
+    # 8. Train/test split.
     X_train, X_test, y_train, y_test = train_test_split(
         X, y, test_size=0.2, random_state=42, stratify=y
     )
-    pipeline.fit(X_train, y_train)
+    
+    # 9. Optionally perform hyperparameter tuning via grid search.
+    if grid_search_on:
+        param_grid = {
+            # Try different thresholds for feature selection.
+            'feature_selection__threshold': ['median', 'mean', 0.01, 0.005, 0.001],
+            # Tune classifier parameters.
+            'classifier__max_depth': [3, 5, 7],
+            'classifier__learning_rate': [0.1, 0.01, 0.001],
+            'classifier__n_estimators': [100, 200, 300],
+            'classifier__reg_alpha': [0.0, 0.5, 1.0],
+            'classifier__reg_lambda': [1.0, 1.5, 2.0]
+        }
+        # Set n_jobs=1 in GridSearchCV to limit parallel processes.
+        grid_search = GridSearchCV(pipeline, param_grid, cv=3, scoring='accuracy', n_jobs=1)
+        grid_search.fit(X_train, y_train)
+        print("Best parameters:", grid_search.best_params_)
+        best_pipeline = grid_search.best_estimator_
+    else:
+        pipeline.fit(X_train, y_train)
+        best_pipeline = pipeline
 
-    # 9. Evaluate the model.
-    y_pred = pipeline.predict(X_test)
+    # 10. Evaluate the best model.
+    y_pred = best_pipeline.predict(X_test)
     print(classification_report(y_test, y_pred))
 
-    # 10. Get feature importances from the classifier.
-    # Get the original feature names from the preprocessor.
-    feature_names = pipeline.named_steps["preprocessor"].get_feature_names_out()
-    # Retrieve the support mask from the feature selection step.
-    mask = pipeline.named_steps["feature_selection"].get_support()
+    # 11. Get feature importances from the classifier.
+    feature_names = best_pipeline.named_steps["preprocessor"].get_feature_names_out()
+    mask = best_pipeline.named_steps["feature_selection"].get_support()
     selected_features = feature_names[mask]
-    importances = pipeline.named_steps["classifier"].feature_importances_
+    importances = best_pipeline.named_steps["classifier"].feature_importances_
 
     fi_df = pd.DataFrame({
         "feature": selected_features,
@@ -492,9 +513,9 @@ def xg_boost_model(interval="1d") -> None:
     print("\nFeature Importances (Descending):")
     print(fi_df)
 
-    # 11. Save the trained pipeline.
+    # 12. Save the trained pipeline.
     os.makedirs(os.path.dirname(model_path), exist_ok=True)
-    joblib.dump(pipeline, model_path)
+    joblib.dump(best_pipeline, model_path)
     print(f"\nModel saved at: {model_path}")
     
 
