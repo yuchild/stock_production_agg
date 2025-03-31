@@ -22,6 +22,7 @@ from sklearn.model_selection import train_test_split, GridSearchCV
 from xgboost import XGBClassifier
 from sklearn.feature_selection import SelectFromModel
 from sklearn.preprocessing import OneHotEncoder
+from sklearn.utils.class_weight import compute_class_weight
 
 from sklearn.metrics import classification_report
 
@@ -368,6 +369,19 @@ def make_table_features_process(stock_set: set(), interval: str, processes: int 
 ##########################################
 
 
+import os
+import joblib
+import pandas as pd
+import numpy as np
+from xgboost import XGBClassifier
+from sklearn.pipeline import Pipeline
+from sklearn.compose import ColumnTransformer
+from sklearn.model_selection import train_test_split, GridSearchCV
+from sklearn.metrics import classification_report
+from sklearn.feature_selection import SelectFromModel
+from sklearn.preprocessing import OneHotEncoder
+from sklearn.utils.class_weight import compute_class_weight
+
 def xg_boost_model(interval="1d", grid_search_on=False) -> None:
     # Path to the combined DataFrame
     combined_df_path = f"./data_transformed/all_{interval}_model_df.pkl"
@@ -434,7 +448,7 @@ def xg_boost_model(interval="1d", grid_search_on=False) -> None:
         ("cat", categorical_transformer, categorical_cols),
     ])
 
-    # When grid search is on, reduce parallelism to avoid nested parallelism issues.
+    # When grid search is on, avoid nested parallelism by setting inner n_jobs=1.
     clf_n_jobs = 1 if grid_search_on else 8
 
     # 5. Set up the feature selection step.
@@ -448,7 +462,6 @@ def xg_boost_model(interval="1d", grid_search_on=False) -> None:
         reg_alpha=1.0,
         reg_lambda=1.0,
     )
-    # The threshold parameter decides which features to keep.
     feature_selector = SelectFromModel(estimator=xgb_selector, threshold="median", prefit=False)
 
     # 6. Define the main classifier.
@@ -474,25 +487,32 @@ def xg_boost_model(interval="1d", grid_search_on=False) -> None:
         X, y, test_size=0.2, random_state=42, stratify=y
     )
     
+    # 8a. Compute sample weights to tweak sensitivity.
+    # This computes weights inversely proportional to class frequencies.
+    classes = np.unique(y_train)
+    class_weights = compute_class_weight(class_weight='balanced', classes=classes, y=y_train)
+    weight_dict = dict(zip(classes, class_weights))
+    # Create a sample weight array for the training set.
+    sample_weights = y_train.map(weight_dict)
+    
     # 9. Optionally perform hyperparameter tuning via grid search.
     if grid_search_on:
+        # Reduced parameter grid focusing on the most relevant hyperparameters.
         param_grid = {
-            # Try different thresholds for feature selection.
-            'feature_selection__threshold': ['median', 'mean', 0.01, 0.005, 0.001],
-            # Tune classifier parameters.
-            'classifier__max_depth': [3, 5, 7],
-            'classifier__learning_rate': [0.1, 0.01, 0.001],
-            'classifier__n_estimators': [100, 200, 300],
-            'classifier__reg_alpha': [0.0, 0.5, 1.0],
-            'classifier__reg_lambda': [1.0, 1.5, 2.0]
+            'feature_selection__threshold': ['median', 0.005],
+            'classifier__max_depth': [3, 5],
+            'classifier__learning_rate': [0.1, 0.01],
+            'classifier__n_estimators': [100, 200],
+            'classifier__reg_alpha': [0.0, 0.5],
+            'classifier__reg_lambda': [1.0, 1.5]
         }
-        # Set n_jobs=1 in GridSearchCV to limit parallel processes.
-        grid_search = GridSearchCV(pipeline, param_grid, cv=3, scoring='accuracy', n_jobs=1)
-        grid_search.fit(X_train, y_train)
+        # Using n_jobs=-1 to leverage all available cores for the grid search.
+        grid_search = GridSearchCV(pipeline, param_grid, cv=3, scoring='accuracy', n_jobs=-1)
+        grid_search.fit(X_train, y_train, classifier__sample_weight=sample_weights)
         print("Best parameters:", grid_search.best_params_)
         best_pipeline = grid_search.best_estimator_
     else:
-        pipeline.fit(X_train, y_train)
+        pipeline.fit(X_train, y_train, classifier__sample_weight=sample_weights)
         best_pipeline = pipeline
 
     # 10. Evaluate the best model.
@@ -517,6 +537,7 @@ def xg_boost_model(interval="1d", grid_search_on=False) -> None:
     os.makedirs(os.path.dirname(model_path), exist_ok=True)
     joblib.dump(best_pipeline, model_path)
     print(f"\nModel saved at: {model_path}")
+
     
 
 ##########################################
