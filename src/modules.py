@@ -226,7 +226,7 @@ def make_master_table(stock_list: set, interval: str = '1d') -> None:
 
 def make_table_features(symbol: str, interval: str) -> None:
 
-    # load vix table
+    # load vix table, make sure '^VIX' is up to date
     vix_table = load_raw('^VIX', interval)
 
     # vix moving stdev 20, 10, 5
