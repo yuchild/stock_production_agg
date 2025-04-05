@@ -224,7 +224,7 @@ def make_master_table(stock_list: set, interval: str = '1d') -> None:
     print(f"Saved combined dataframe to: {out_file_path}")
 
 
-def make_table_features(symbol: str, interval: str) -> None:
+def make_table_features(symbol: str, interval: str, build: bool=True) -> None:
 
     # load vix table, make sure '^VIX' is up to date
     vix_table = load_raw('^VIX', interval)
@@ -315,6 +315,14 @@ def make_table_features(symbol: str, interval: str) -> None:
     df_merged['candle_cluster'] = data_z['cluster']
     
     # save table for model building
+    # build=True then df_merged[cols].iloc[:-50]
+    # build=False then df_meraged[cols].iloc[:-1]
+    
+    if build:
+        row = -51
+    else:
+        row = df_merged.shape[0]
+        
     cols = ['open', 
             'high', 
             'low', 
@@ -351,14 +359,14 @@ def make_table_features(symbol: str, interval: str) -> None:
             'candle_cluster',
             'direction',
             ]
-    df_merged[cols].iloc[:-50].to_pickle(f'./data_transformed/{symbol}_{interval}_model_df.pkl')
+    df_merged[cols].iloc[:row].to_pickle(f'./data_transformed/{symbol}_{interval}_model_df.pkl')
 
 
 def make_table_features_process(stock_set: set(), interval: str, processes: int = 1) -> None:
 
     # stocks_set = etf_top_stocks(*etf_list)
 
-    params = [(symbol, interval) for symbol in stock_set]
+    params = [(symbol, interval, build==True) for symbol in stock_set]
 
     with multiprocessing.Pool(processes=processes) as pool:
         pool.starmap(make_table_features, params)
@@ -544,11 +552,12 @@ def xg_boost_model(interval="1d", grid_search_on=False) -> None:
 # functions to use model for predictions #
 ##########################################
 
-def model_prospect(symbol: str, interval: str) -> None:
+def model_prospect(symbol: str, interval: str, build: bool=True) -> None:
 
     # Assume these functions are defined elsewhere
     download(symbol, interval)
-    make_table_features(symbol, interval)
+    download('^VIX', interval)
+    make_table_features(symbol, interval, build)
     df_prospect = load_model_df(symbol, interval)
     
     # Define columns (make sure these match your data)
@@ -585,7 +594,7 @@ def model_prospect(symbol: str, interval: str) -> None:
     df_prospect = df_prospect[cols].copy()  # Use only the needed columns
     
     # Prepare the raw feature input (drop the target column)
-    X = df_prospect.drop(columns=['direction'])
+    X = df_prospect.drop(columns=['direction']).copy()
     
     # Instead of converting to a NumPy array, preserve DataFrame structure
     X_input = X.iloc[[-1]]
@@ -619,11 +628,12 @@ def model_prospect(symbol: str, interval: str) -> None:
     print("PDT:", dt_pdt.strftime('%Y-%m-%d %I:%M:%S %p %Z%z'))
 
 
-def model_validation(symbol: str, interval: str):
+def model_validation(symbol: str, interval: str, build: bool=True):
     
     # Assume these functions are defined elsewhere
     download(symbol, interval)
-    make_table_features(symbol, interval)
+    download('^VIX', interval)
+    make_table_features(symbol, interval, build)
     df_prospect = load_model_df(symbol, interval)
     
     # Define columns (make sure these match your data)
