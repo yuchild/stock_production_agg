@@ -25,3 +25,8 @@ ipykernel
 
 # Deployment with Streamlit
 streamlit
+
+# ARIMA Model
+pmdarima
+statsmodels
+prophet
