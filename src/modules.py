@@ -319,7 +319,7 @@ def make_table_features(symbol: str, interval: str, build: bool=True) -> None:
     # build=False then df_meraged[cols].iloc[:-1]
     
     if build:
-        row = -51
+        row = -101
     else:
         row = df_merged.shape[0]
         
@@ -362,7 +362,7 @@ def make_table_features(symbol: str, interval: str, build: bool=True) -> None:
     df_merged[cols].iloc[:row].to_pickle(f'./data_transformed/{symbol}_{interval}_model_df.pkl')
 
 
-def make_table_features_process(stock_set: set(), interval: str, processes: int = 1) -> None:
+def make_table_features_process(stock_set: set(), interval: str, processes: int = 1, build: bool=True) -> None:
 
     # stocks_set = etf_top_stocks(*etf_list)
 
@@ -672,7 +672,7 @@ def model_validation(symbol: str, interval: str, build: bool=True):
     # Prepare the raw feature input (drop the target column) for the last 50 rows (from -51 to -2)
     X_dir = df_prospect['direction'].iloc[-51:-1].copy()
     X = df_prospect.drop(columns=['direction'])
-    X_input = X.iloc[-51:-1]  # selects 50 rows, excluding the very last row
+    X_input = X.iloc[-101:-1]  # selects 100 rows, excluding the very last row
     
     # Load the saved pipeline model.
     model = joblib.load(f'./models/xgboost_{interval}_model.pkl')
