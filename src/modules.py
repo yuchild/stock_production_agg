@@ -18,13 +18,14 @@ from sklearn.preprocessing import StandardScaler, OneHotEncoder
 from sklearn.pipeline import Pipeline
 from sklearn.cluster import KMeans
 from sklearn.model_selection import train_test_split, GridSearchCV
-
-from xgboost import XGBClassifier
+from sklearn.compose import ColumnTransformer
+from sklearn.utils.class_weight import compute_class_weight
 from sklearn.feature_selection import SelectFromModel
 from sklearn.preprocessing import OneHotEncoder
 from sklearn.utils.class_weight import compute_class_weight
-
 from sklearn.metrics import classification_report
+
+from xgboost import XGBClassifier
 
 from datetime import datetime
 from zoneinfo import ZoneInfo
@@ -34,6 +35,7 @@ logging.getLogger("yfinance").setLevel(logging.ERROR)
 
 import warnings
 warnings.filterwarnings("ignore", message=".*use_label_encoder.*")
+
 
 ##############
 # etf basket #
@@ -376,20 +378,6 @@ def make_table_features_process(stock_set: set(), interval: str, processes: int 
 # functions to model transformed dataset #
 ##########################################
 
-
-import os
-import joblib
-import pandas as pd
-import numpy as np
-from xgboost import XGBClassifier
-from sklearn.pipeline import Pipeline
-from sklearn.compose import ColumnTransformer
-from sklearn.model_selection import train_test_split, GridSearchCV
-from sklearn.metrics import classification_report
-from sklearn.feature_selection import SelectFromModel
-from sklearn.preprocessing import OneHotEncoder
-from sklearn.utils.class_weight import compute_class_weight
-
 def xg_boost_model(interval="1d", grid_search_on=False) -> None:
     # Path to the combined DataFrame
     combined_df_path = f"./data_transformed/all_{interval}_model_df.pkl"
@@ -481,6 +469,7 @@ def xg_boost_model(interval="1d", grid_search_on=False) -> None:
         n_jobs=clf_n_jobs,
         reg_alpha=1.0,
         reg_lambda=1.0,
+        tree_method='hist',
     )
 
     # 7. Build the pipeline.
@@ -515,7 +504,14 @@ def xg_boost_model(interval="1d", grid_search_on=False) -> None:
             'classifier__reg_lambda': [1.0, 1.5]
         }
         # Using n_jobs=-1 to leverage all available cores for the grid search.
-        grid_search = GridSearchCV(pipeline, param_grid, cv=3, scoring='accuracy', n_jobs=-1)
+        grid_search = GridSearchCV(pipeline, 
+                                   param_grid, 
+                                   cv=3, 
+                                   scoring='accuracy',
+                                   n_jobs=-1,
+                                   verbose=3,
+                                   pre_dispatch='2*n_jobs',
+                                  )
         grid_search.fit(X_train, y_train, classifier__sample_weight=sample_weights)
         print("Best parameters:", grid_search.best_params_)
         best_pipeline = grid_search.best_estimator_
