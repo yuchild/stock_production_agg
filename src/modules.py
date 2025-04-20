@@ -663,7 +663,7 @@ def model_validation(symbol: str, interval: str, build: bool=True):
     df_prospect = df_prospect[cols].copy()  # Use only the needed columns
     
     # Prepare the raw feature input (drop the target column) for the last 50 rows (from -51 to -2)
-    X_dir = df_prospect['direction'].iloc[-51:-1].copy()
+    X_dir = df_prospect['direction'].iloc[-101:-1].copy()
     X = df_prospect.drop(columns=['direction'])
     X_input = X.iloc[-101:-1]  # selects 100 rows, excluding the very last row
     
@@ -680,7 +680,7 @@ def model_validation(symbol: str, interval: str, build: bool=True):
     predicted_labels = [label_mapping.get(pred, "unknown") for pred in predictions]
     
     # Create a copy of the corresponding rows from df_prospect
-    df_validation = df_prospect.iloc[-51:-1].copy()
+    df_validation = df_prospect.iloc[-101:-1].copy()
     
     # Add new columns for prediction and class probabilities.
     df_validation['direction'] = X_dir_labels
