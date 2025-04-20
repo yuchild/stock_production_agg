@@ -444,9 +444,6 @@ def xg_boost_model(interval="1d", grid_search_on=False) -> None:
         ("cat", categorical_transformer, categorical_cols),
     ])
 
-    # When grid search is on, avoid nested parallelism by setting inner n_jobs=1.
-    clf_n_jobs = 1 if grid_search_on else 8
-
     # 5. Set up the feature selection step.
     # Use an XGBoost estimator with L1 regularization so that less important features are shrunk.
     xgb_selector = XGBClassifier(
@@ -454,7 +451,7 @@ def xg_boost_model(interval="1d", grid_search_on=False) -> None:
         num_class=3,
         random_state=42,
         eval_metric="mlogloss",
-        n_jobs=clf_n_jobs,
+        n_jobs=5,
         reg_alpha=1.0,
         reg_lambda=1.0,
     )
@@ -466,7 +463,7 @@ def xg_boost_model(interval="1d", grid_search_on=False) -> None:
         num_class=3,
         random_state=42,
         eval_metric="mlogloss",
-        n_jobs=clf_n_jobs,
+        n_jobs=5,
         reg_alpha=1.0,
         reg_lambda=1.0,
         tree_method='hist',
@@ -508,7 +505,7 @@ def xg_boost_model(interval="1d", grid_search_on=False) -> None:
                                    param_grid, 
                                    cv=3, 
                                    scoring='accuracy',
-                                   n_jobs=-1,
+                                   n_jobs=5,
                                    verbose=3,
                                    pre_dispatch='2*n_jobs',
                                   )
