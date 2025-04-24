@@ -603,7 +603,11 @@ def model_prospect(symbol: str, interval: str, build: bool=True) -> None:
     label_mapping = {0: "no_change", 2: "down", 1: "up"} # 
     predicted_label = label_mapping.get(prediction[0], "unknown")
     
+    # Load raw df to get the last row
+    df_raw = load_raw(symbol, interval)
+
     print(f"\nModel Prediction {interval} {symbol.upper()}:")
+    print(f"{symbol.upper()} last price: {df_raw['close'].iloc[-1]:.2f}")
     print(f"Predicted Next {interval} Movement: {predicted_label.upper()}")
     
     print("\nModel Prediction Probabilities:")
