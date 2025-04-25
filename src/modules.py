@@ -91,7 +91,7 @@ def zscore(x, mu, stdev):
 
 
 # compute kelly criterion
-def kelly_c(p, l=1, g=2.5):     
+def kelly_c(p, l=1, g=2):     
     return list(map(lambda x:(x / l - (1 - x) / g), p))
 
     
