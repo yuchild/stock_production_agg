@@ -114,9 +114,9 @@ def main():
             st.header("Prospect Results")
             st.markdown(f"**Predicted Next {interval} Movement:** *{pred_label}*")
             st.markdown("**Prediction Probabilities:**")
-            st.markdown(f"- no_change: {probs[0]:.4f}")
-            st.markdown(f"- up: {probs[1]:.4f}")
-            st.markdown(f"- down: {probs[2]:.4f}")
+            st.markdown(f"➡️ no_change: {probs[0]:.4f}")
+            st.markdown(f"⬆️ up: {probs[1]:.4f}")
+            st.markdown(f"⬇️ down: {probs[2]:.4f}")
             st.markdown(f"**Last Entry (EST):** {dt_est.strftime('%Y-%m-%d %I:%M:%S %p %Z')}")
             st.markdown(f"**Last Entry (PDT):** {dt_pdt.strftime('%Y-%m-%d %I:%M:%S %p %Z')}")
 
