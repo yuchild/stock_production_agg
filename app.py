@@ -104,7 +104,7 @@ def main():
             st.metric("Correctly Predicted", correctly)
             st.metric("Entries Predicted", entries)
             st.metric("Percent Correct", f"{p:.2%}")
-            st.metric("Kelly Criterion", f"{kelly:.2%}")
+            st.metric("Kelly Criterion (Risk This % for 2 to 1 win loss ratio)", f"{kelly:.2%}")
         # Summary & Prospect
         with text_col2:
             st.header("Summary")
