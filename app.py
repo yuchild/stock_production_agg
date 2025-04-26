@@ -26,7 +26,7 @@ def main():
     symbol = st.sidebar.text_input("Stock Symbol", value="NVDA").upper()
     interval = st.sidebar.selectbox(
         "Interval", 
-        options=['5m', '15m', '1h', '1d', '1wk'], 
+        options=['5m', '15m', '1h', '1d', '1wk', '1m',], 
         index=3
     )
 
