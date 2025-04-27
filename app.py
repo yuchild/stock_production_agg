@@ -28,8 +28,8 @@ def main():
         options=['1m', '5m', '15m', '1h', '1d', '1wk', '1mo',], 
         index=3
     )
-    available_funds = st.sidebar.text_input("Available Funds:", value='100')
-    max_loss_pct = st.sidebar.text_input("Max Loss % of Available Funds (default 1%):", value='0.01')
+    account_balance = st.sidebar.text_input("Account Balance:", value='1000')
+    max_loss_pct = st.sidebar.text_input("Max Loss % of Account Balance (default 1%):", value='0.01')
 
     # Determine start date based on interval
     today = datetime.today().date()
@@ -92,8 +92,8 @@ def main():
     entries = int(df_val.shape[0])
     p = correctly / entries if entries else 0
     kelly = f.kelly_c(p=[p], l=1, g=2)[0]
-    risk = float(available_funds) * kelly
-    max_loss_amount = float(available_funds) * max_loss_pct
+    risk = float(account_balance) * kelly
+    max_loss_amount = float(account_balance) * float(max_loss_pct)
     shares = int(risk / last_price) if risk > last_price else 0
     stop_loss_price = last_price - max_loss_amount / shares if shares > 0 else 0
     take_profit_price = last_price + 2 * max_loss_amount / shares if shares > 0 else 0
@@ -111,26 +111,26 @@ def main():
             st.metric("Entries Predicted", entries)
             st.metric("Percent Correct", f"{p:.2%}")
             st.metric("Kelly Criterion", f"{kelly:.2%}")
-            st.metric("Risk Amount", f"{risk:.2%}")
+            st.metric("Risk Amount", f"{risk:.2f}")
             st.metric("Last Price", f"${last_price:.2f}")
-            st.metric("Max Loss Amount", f"{max_loss_amount:.2%}")
+            st.metric("Max Loss Amount", f"{max_loss_amount:.2f}")
             st.metric("Shares to Buy", shares)
             st.metric("Stop Loss Price", f"${stop_loss_price:.2f}")
             st.metric("Take Profit Price", f"${take_profit_price:.2f}")
         # Summary & Prospect
         with text_col2:
             st.header("Summary")
-            st.markdown(f"**Symbol:** {symbol}")
-            st.markdown(f"**Interval:** {interval}")
-            st.markdown(f"**Last Price:** {last_price:.2f}")
+            st.header(f"Symbol: {symbol}")
+            st.header(f"Interval: {interval}")
+            st.header(f"Last Price: {last_price:.2f}")
             st.header("Prospect Results")
-            st.markdown(f"**Predicted Next {interval} Movement:** *{pred_label}*")
-            st.markdown("**Prediction Probabilities:**")
-            st.markdown(f"➡️ no_change: {probs[0]:.4f}")
-            st.markdown(f"⬆️ up: {probs[1]:.4f}")
-            st.markdown(f"⬇️ down: {probs[2]:.4f}")
-            st.markdown(f"**Last Entry (EST):** {dt_est.strftime('%Y-%m-%d %I:%M:%S %p %Z')}")
-            st.markdown(f"**Last Entry (PDT):** {dt_pdt.strftime('%Y-%m-%d %I:%M:%S %p %Z')}")
+            st.header(f"Predicted Next {interval} Movement: {pred_label}")
+            st.header("Prediction Probabilities:")
+            st.write(f"➡️ no_change: {probs[0]:.4f}")
+            st.write(f"⬆️ up: {probs[1]:.4f}")
+            st.write(f"⬇️ down: {probs[2]:.4f}")
+            st.header(f"Last Entry (EST): {dt_est.strftime('%Y-%m-%d %I:%M:%S %p %Z')}")
+            st.header(f"Last Entry (PDT): {dt_pdt.strftime('%Y-%m-%d %I:%M:%S %p %Z')}")
 
     # Right: single, larger chart
     with col_right:
