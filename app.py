@@ -1,5 +1,4 @@
 #!/usr/bin/env python3
-
 import streamlit as st
 st.set_page_config(layout="wide")
 from src import modules as f
@@ -26,13 +25,13 @@ def main():
     symbol = st.sidebar.text_input("Stock Symbol", value="NVDA").upper()
     interval = st.sidebar.selectbox(
         "Interval", 
-        options=['1m', '5m', '15m', '1h', '1d', '1wk', '1mo',], 
+        options=['5m', '15m', '1h', '1d', '1wk'], 
         index=3
     )
 
     # Determine start date based on interval
     today = datetime.today().date()
-    if interval in ['5m', '15m', '1h']:
+    if interval in ['1m', '5m', '15m', '1h']:
         start_date = today - timedelta(days=14)
     elif interval == '1d':
         start_date = today - timedelta(days=90)
@@ -104,7 +103,7 @@ def main():
             st.metric("Correctly Predicted", correctly)
             st.metric("Entries Predicted", entries)
             st.metric("Percent Correct", f"{p:.2%}")
-            st.metric("Kelly Criterion (Risk This % for 2 to 1 win loss ratio)", f"{kelly:.2%}")
+            st.metric("Kelly Criterion", f"{kelly:.2%}")
         # Summary & Prospect
         with text_col2:
             st.header("Summary")
