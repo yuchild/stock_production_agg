@@ -146,7 +146,6 @@ def main():
             start_ts = start_ts.tz_localize(df_prospect.index.tz)
         # now slice safely
         df_hist = df_prospect.loc[start_ts :].copy()
-        df_hist = df_prospect.loc[start_date:].copy()
         df_hist.columns = df_hist.columns.str.lower()
         df_hist.drop(['dividends', 'stock_splits'], axis=1, errors='ignore', inplace=True)
         fig, ax = plt.subplots(figsize=(16, 16))
