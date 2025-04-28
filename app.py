@@ -119,18 +119,18 @@ def main():
             st.metric("Take Profit Price", f"${take_profit_price:.2f}")
         # Summary & Prospect
         with text_col2:
-            st.header("Summary")
+            st.header("📈 Summary")
             st.write(f"Symbol: {symbol}")
             st.write(f"Interval: {interval}")
-            st.metric(f"Last Price: {last_price:.2f}")
+            st.metric(f"Last Price: ", f"{last_price:.2f}")
             st.header("Prospect Results")
             st.write(f"Predicted Next {interval} Movement: {pred_label}")
             st.header("Prediction Probabilities:")
             st.write(f"➡️ no_change: {probs[0]:.4f}")
             st.write(f"⬆️ up: {probs[1]:.4f}")
             st.write(f"⬇️ down: {probs[2]:.4f}")
-            st.metric(f"Last Entry (EST): {dt_est.strftime('%Y-%m-%d %I:%M:%S %p %Z')}")
-            st.metric(f"Last Entry (PDT): {dt_pdt.strftime('%Y-%m-%d %I:%M:%S %p %Z')}")
+            st.metric(f"Last Entry (EST): ", f"{dt_est.strftime('%Y-%m-%d %I:%M:%S %p %Z')}")
+            st.metric(f"Last Entry (PDT): ", f"{dt_pdt.strftime('%Y-%m-%d %I:%M:%S %p %Z')}")
 
     # Right: single, larger chart
     with col_right:
@@ -144,7 +144,7 @@ def main():
         )
         df_hist.columns = df_hist.columns.str.lower()
         df_hist.drop(['dividends', 'stock_splits'], axis=1, errors='ignore', inplace=True)
-        fig, ax = plt.subplots(figsize=(16, 8))
+        fig, ax = plt.subplots(figsize=(16, 12))
         fig.patch.set_facecolor('black')
         ax.set_facecolor('black')
         ax.plot(df_hist.index, df_hist['close'], linewidth=3)
