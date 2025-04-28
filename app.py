@@ -57,7 +57,7 @@ def main():
         'hour_of_day','candle_cluster','direction',
     ]
     df_feat = df_prospect[feature_cols]
-    last_price = df_prospect['Close'].iloc[-1]
+    last_price = df_prospect['close'].iloc[-1]
     X_input = df_feat.drop(columns=['direction']).iloc[[-1]]
 
     # Load model or notify if missing
