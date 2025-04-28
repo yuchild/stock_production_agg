@@ -107,8 +107,8 @@ def main():
         # Metrics
         with text_col1:
             st.header("Validation Metrics")
-            st.metric("Correctly Predicted", correctly)
-            st.metric("Entries Predicted", entries)
+            # st.metric("Correctly Predicted", correctly)
+            # st.metric("Entries Predicted", entries)
             st.metric("Percent Correct", f"{p:.2%}")
             st.metric("Kelly Criterion", f"{kelly:.2%}")
             st.header("Trade Metrics")
