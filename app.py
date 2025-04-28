@@ -40,20 +40,11 @@ def main():
     else:
         start_date = today - timedelta(days=730)
 
-    # Download raw data if missing
-    raw_path = f'./data_raw/{symbol}_{interval}_df.pkl'
-    if not os.path.exists(raw_path):
-        f.download(symbol, interval)
-    df_raw = f.load_raw(symbol, interval)
-    last_price = df_raw['close'].iloc[-1]
-
-    # Generate feature table if missing
-    feat_path = f'./data_transformed/{symbol}_{interval}_model_df.pkl'
-    if not os.path.exists(feat_path):
-        # Ensure VIX features exist
-        f.download('^VIX', interval)
-        f.make_table_features(symbol, interval, build=False)
-    df_feat = f.load_model_df(symbol, interval)
+    # Download raw data 
+    f.download(symbol, interval)
+    f.download('^VIX', interval)
+    f.make_table_features(symbol, interval, build=False)
+    df_prospect = f.load_model_df(symbol, interval)
 
     # Prepare features for prediction
     feature_cols = [
@@ -65,7 +56,7 @@ def main():
         'pct_gap_up_down_stdev5','month_of_year','day_of_month','day_of_week',
         'hour_of_day','candle_cluster','direction'
     ]
-    df_feat = df_feat[feature_cols]
+    df_feat = df_prospect[feature_cols]
     X_input = df_feat.drop(columns=['direction']).iloc[[-1]]
 
     # Load model or notify if missing
