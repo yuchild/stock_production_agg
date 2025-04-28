@@ -54,10 +54,11 @@ def main():
         'body_stdev10','body_stdev5','bottom_stdev20','bottom_stdev10',
         'bottom_stdev5','pct_gap_up_down_stdev20','pct_gap_up_down_stdev10',
         'pct_gap_up_down_stdev5','month_of_year','day_of_month','day_of_week',
-        'hour_of_day','candle_cluster','direction'
+        'hour_of_day','candle_cluster','direction','Close',
     ]
     df_feat = df_prospect[feature_cols]
-    X_input = df_feat.drop(columns=['direction']).iloc[[-1]]
+    last_price = df_feat['Close'].iloc[-1]
+    X_input = df_feat.drop(columns=['direction', 'Close']).iloc[[-1]]
 
     # Load model or notify if missing
     model_path = f'./models/xgboost_{interval}_model.pkl'
