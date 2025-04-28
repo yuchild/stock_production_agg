@@ -120,7 +120,7 @@ def main():
             st.write(f"Interval: {interval}")
             st.metric(f"Last Price: ", f"${last_price:.2f}")
             st.header("Prospect Results")
-            st.subheader(f"Predicted Next {interval} Movement: {pred_label}")
+            st.subheader(f"Predicted Next {interval} Movement: ***{pred_label}***")
             st.header("Prediction Probabilities:")
             st.subheader(f"➡️ no_change: {probs[0]:.4f}")
             st.subheader(f"⬆️ up: {probs[1]:.4f}")
