@@ -4,7 +4,7 @@ st.set_page_config(layout="wide")
 from src import modules as f
 import os
 import pandas as pd
-import yfinance as yf
+# import yfinance as yf
 import matplotlib.pyplot as plt
 import joblib
 from datetime import datetime, timedelta
@@ -34,7 +34,7 @@ def main():
     # Determine start date based on interval
     today = datetime.today().date()
     if interval in ['1m', '5m', '15m', '1h']:
-        start_date = today - timedelta(days=14)
+        start_date = today - timedelta(days=13)
     elif interval == '1d':
         start_date = today - timedelta(days=90)
     else:
@@ -44,7 +44,9 @@ def main():
     f.download(symbol, interval)
     f.download('^VIX', interval)
     f.make_table_features(symbol, interval, build=False)
+    df_raw = f.load_raw_df(symbol, interval)
     df_prospect = f.load_model_df(symbol, interval)
+    last_price = df_prospect['close'].iloc[-1].copy()
 
     # Prepare features for prediction
     feature_cols = [
@@ -57,7 +59,6 @@ def main():
         'hour_of_day','candle_cluster','direction',
     ]
     df_feat = df_prospect[feature_cols]
-    last_price = df_prospect['close'].iloc[-1]
     X_input = df_feat.drop(columns=['direction']).iloc[[-1]]
 
     # Load model or notify if missing
@@ -128,16 +129,17 @@ def main():
     # Right: single, larger chart
     with col_right:
         st.header(f"{symbol} Price Chart")
-        df_hist = yf.Ticker(symbol).history(
-            interval=interval,
-            start=str(start_date),
-            end=str(today),
-            auto_adjust=False,
-            prepost=True
-        )
+        # df_hist = yf.Ticker(symbol).history(
+        #     interval=interval,
+        #     start=str(start_date),
+        #     end=str(today),
+        #     auto_adjust=False,
+        #     prepost=True
+        # )
+        df_hist = df_raw.loc[start_date:].copy()
         df_hist.columns = df_hist.columns.str.lower()
         df_hist.drop(['dividends', 'stock_splits'], axis=1, errors='ignore', inplace=True)
-        fig, ax = plt.subplots(figsize=(16, 14))
+        fig, ax = plt.subplots(figsize=(16, 16))
         fig.patch.set_facecolor('black')
         ax.set_facecolor('black')
         ax.plot(df_hist.index, df_hist['close'], linewidth=3)

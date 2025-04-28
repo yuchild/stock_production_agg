@@ -105,8 +105,9 @@ def download(symbol: str, interval:str) -> None:
     try:    
         stock = yf.Ticker(symbol)
         
-        if interval in {'5m','15m','1h',}:
-            interval_period_map = {'5m':58,
+        if interval in {'1m', '5m','15m','1h',}:
+            interval_period_map = {'1m':5,
+                                   '5m':58,
                                    '15m':58,
                                    '1h':728,
                                   }
