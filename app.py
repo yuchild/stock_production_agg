@@ -82,7 +82,7 @@ def main():
     pred_label = label_mapping.get(pred, "unknown").upper()
 
     # Datetime conversion
-    dt_utc = df_raw.index[-1]
+    dt_utc = X_input.name
     dt_est = dt_utc.astimezone(ZoneInfo("America/New_York"))
     dt_pdt = dt_utc.astimezone(ZoneInfo("America/Los_Angeles"))
 
