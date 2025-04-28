@@ -120,17 +120,17 @@ def main():
         # Summary & Prospect
         with text_col2:
             st.header("Summary")
-            st.header(f"Symbol: {symbol}")
-            st.header(f"Interval: {interval}")
-            st.header(f"Last Price: {last_price:.2f}")
+            st.write(f"Symbol: {symbol}")
+            st.write(f"Interval: {interval}")
+            st.metric(f"Last Price: {last_price:.2f}")
             st.header("Prospect Results")
-            st.header(f"Predicted Next {interval} Movement: {pred_label}")
+            st.write(f"Predicted Next {interval} Movement: {pred_label}")
             st.header("Prediction Probabilities:")
             st.write(f"➡️ no_change: {probs[0]:.4f}")
             st.write(f"⬆️ up: {probs[1]:.4f}")
             st.write(f"⬇️ down: {probs[2]:.4f}")
-            st.header(f"Last Entry (EST): {dt_est.strftime('%Y-%m-%d %I:%M:%S %p %Z')}")
-            st.header(f"Last Entry (PDT): {dt_pdt.strftime('%Y-%m-%d %I:%M:%S %p %Z')}")
+            st.metric(f"Last Entry (EST): {dt_est.strftime('%Y-%m-%d %I:%M:%S %p %Z')}")
+            st.metric(f"Last Entry (PDT): {dt_pdt.strftime('%Y-%m-%d %I:%M:%S %p %Z')}")
 
     # Right: single, larger chart
     with col_right:
