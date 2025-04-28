@@ -28,7 +28,7 @@ def main():
         options=['1m', '5m', '15m', '1h', '1d', '1wk', '1mo',], 
         index=3
     )
-    account_balance = st.sidebar.text_input("Account Balance:", value='1000')
+    account_balance = st.sidebar.text_input("Account Balance:", value='10000')
     max_loss_pct = st.sidebar.text_input("Max Loss % of Account Balance (default 1%):", value='0.01')
 
     # Determine start date based on interval
