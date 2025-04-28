@@ -44,7 +44,7 @@ def main():
     f.download(symbol, interval)
     f.download('^VIX', interval)
     f.make_table_features(symbol, interval, build=False)
-    df_raw = f.load_raw_df(symbol, interval)
+    df_raw = f.load_raw(symbol, interval)
     df_prospect = f.load_model_df(symbol, interval)
     last_price = df_prospect['close'].iloc[-1].copy()
 
@@ -136,7 +136,7 @@ def main():
         #     auto_adjust=False,
         #     prepost=True
         # )
-        df_hist = df_raw.loc[start_date:].copy()
+        df_hist = df_prospect.loc[start_date:].copy()
         df_hist.columns = df_hist.columns.str.lower()
         df_hist.drop(['dividends', 'stock_splits'], axis=1, errors='ignore', inplace=True)
         fig, ax = plt.subplots(figsize=(16, 16))
