@@ -33,8 +33,10 @@ def main():
 
     # Determine start date based on interval
     today = datetime.today().date()
-    if interval in ['1m', '5m', '15m', '1h']:
+    if interval in ['5m', '15m', '1h']:
         start_date = today - timedelta(days=13)
+    elif interval == '1m':
+        start_date = today - timedelta(days=2)
     elif interval == '1d':
         start_date = today - timedelta(days=90)
     else:
@@ -136,6 +138,14 @@ def main():
         #     auto_adjust=False,
         #     prepost=True
         # )
+
+        # make start_date into a pandas Timestamp…
+        start_ts = pd.Timestamp(start_date)
+        # …and localize it if your index has a tz
+        if df_prospect.index.tz is not None:
+            start_ts = start_ts.tz_localize(df_prospect.index.tz)
+        # now slice safely
+        df_hist = df_prospect.loc[start_ts :].copy()
         df_hist = df_prospect.loc[start_date:].copy()
         df_hist.columns = df_hist.columns.str.lower()
         df_hist.drop(['dividends', 'stock_splits'], axis=1, errors='ignore', inplace=True)
