@@ -130,7 +130,7 @@ def main():
 
     # Right: single, larger chart
     with col_right:
-        st.header(f"{symbol} Price Chart")
+        st.header(f"{symbol} {interval} Price Chart")
         # df_hist = yf.Ticker(symbol).history(
         #     interval=interval,
         #     start=str(start_date),
