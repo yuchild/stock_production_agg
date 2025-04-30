@@ -100,7 +100,7 @@ def main():
     p = correctly / entries if entries else 0
     kelly = f.kelly_c(p=[p], l=1, g=2)[0]
     risk = float(account_balance) * kelly
-    max_loss_amount = float(account_balance) * float(max_loss_pct)
+    max_loss_amount = risk * float(max_loss_pct)
     shares = int(risk / last_price) if risk > last_price else 0
     stop_loss_price = last_price - max_loss_amount / shares if shares > 0 else 0
     take_profit_price = last_price + 2 * max_loss_amount / shares if shares > 0 else 0
