@@ -28,8 +28,8 @@ def main():
         options=['1m', '5m', '15m', '1h', '1d', '1wk', '1mo',], 
         index=3
     )
-    account_balance = st.sidebar.text_input("Account Balance:", value='10000')
-    max_loss_pct = st.sidebar.text_input("Max Loss % per trade (default 1%):", value='0.01')
+    account_balance = st.sidebar.text_input("Account Balance:", value='100000')
+    max_loss_pct = st.sidebar.text_input("Max Loss % per trade (default 1.5%):", value='0.015')
     st.sidebar.markdown("""
     #### Validation Metrics
     - Percent Correct: Percentage of correctly predicted entries of last 100 entries
