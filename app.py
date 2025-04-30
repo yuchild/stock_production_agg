@@ -29,7 +29,19 @@ def main():
         index=3
     )
     account_balance = st.sidebar.text_input("Account Balance:", value='10000')
-    max_loss_pct = st.sidebar.text_input("Max Loss % of Account Balance (default 1%):", value='0.01')
+    max_loss_pct = st.sidebar.text_input("Max Loss % per trade (default 1%):", value='0.01')
+    st.sidebar.markdown("""
+    #### Validation Metrics
+    - Percent Correct: Percentage of correctly predicted entries of last 100 entries
+    - Kelly Criterion: Maximum fraction of account balance to risk per trade 2:1 ratio of win to loss
+    #### Trade Metrics
+    - Risk Amount: Amount to risk per trade based on Kelly Criterion and account balance
+    - Last Price: Last price of the stock
+    - Max Loss Amount: Maximum loss amount based on account balance and max loss percentage
+    - Shares to Buy: Number of shares to buy based on risk amount and last price
+    - Stop Loss Price: Price to set for stop loss based on last price and max loss amount
+    - Take Profit Price: Price to set for take profit based on last price and max loss amount
+    """)
 
     # Determine start date based on interval
     today = datetime.today().date()
