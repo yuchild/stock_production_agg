@@ -58,7 +58,6 @@ def main():
     f.download(symbol, interval)
     f.download('^VIX', interval)
     f.make_table_features(symbol, interval, build=False)
-    df_raw = f.load_raw(symbol, interval)
     df_prospect = f.load_model_df(symbol, interval)
     last_price = df_prospect['close'].iloc[-1].copy()
 
