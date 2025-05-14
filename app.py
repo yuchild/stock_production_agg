@@ -13,7 +13,7 @@ from zoneinfo import ZoneInfo
 
 def main():
     # App title
-    st.title("Stock Analysis App")
+    st.title("Stock Analysis App by David Yu")
 
     # Ensure directories exist for data and models
     os.makedirs('./data_raw', exist_ok=True)
