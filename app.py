@@ -13,7 +13,7 @@ from zoneinfo import ZoneInfo
 
 def main():
     # App title
-    st.title("Stock Analysis App by David Yu")
+    st.title("Stock Next Interval Prediction App by [David Yu](https://www.linkedin.com/in/chi-yu)")
 
     # Ensure directories exist for data and models
     os.makedirs('./data_raw', exist_ok=True)
@@ -32,7 +32,7 @@ def main():
     max_loss_pct = st.sidebar.text_input("Max Loss % per trade (default 1.5%):", value='0.015')
     st.sidebar.markdown("""
     #### Validation Metrics
-    - Percent Correct: Percentage of correctly predicted entries of last 100 entries
+    - Percent Correct: Correctly predicted next interval in each of the last 100 entries, > 33.33% means model is better than random guessing
     - Kelly Criterion: Maximum fraction of account balance to risk per trade 2:1 ratio of win to loss
     #### Trade Metrics
     - Risk Amount: Amount to risk per trade based on Kelly Criterion and account balance
