@@ -119,23 +119,49 @@ def main():
             st.metric("Kelly Criterion", f"{kelly:.2%}")
             st.header("Trade Metrics")
             st.metric("Risk Amount", f"{risk:.2f}")
-            st.metric("Max Loss Amount", f"{max_loss_amount:.2f}")
-            st.metric("Last Price", f"${last_price:.2f}")
             st.metric("Shares to Buy", shares)
+            st.metric("Max Loss Amount", f"{max_loss_amount:.2f}")
             st.metric("Stop Loss Price", f"${stop_loss_price:.2f}")
             st.metric("Take Profit Price", f"${take_profit_price:.2f}")
+
         # Summary & Prospect
         with text_col2:
             st.header("📈 Summary")
             st.write(f"Symbol: {symbol}")
             st.write(f"Interval: {interval}")
             st.metric(f"Last Price: ", f"${last_price:.2f}")
+            # st.header("Model Inferences")
+            # st.subheader(f"Predicted Next {interval} Movement: ***{pred_label}***")
+            # st.header("Model Probabilities:")
+            # st.subheader(f"➡️ no_change: {probs[0]:.4f}")
+            # st.subheader(f"⬆️ up: {probs[1]:.4f}")
+            # st.subheader(f"⬇️ down: {probs[2]:.4f}")
             st.header("Model Inferences")
-            st.subheader(f"Predicted Next {interval} Movement: ***{pred_label}***")
+            # Color‑coded prediction label
+            if pred_label.lower() == "up":
+                label_color = "green"
+            elif pred_label.lower() == "down":
+                label_color = "red"
+            else:
+                label_color = "yellow"
+            st.markdown(
+                f"<h3>Predicted Next {interval} Direction: <span style='color:{label_color}'><b>{pred_label}</b></span></h3>",
+                unsafe_allow_html=True,
+            )
             st.header("Model Probabilities:")
-            st.subheader(f"➡️ no_change: {probs[0]:.4f}")
-            st.subheader(f"⬆️ up: {probs[1]:.4f}")
-            st.subheader(f"⬇️ down: {probs[2]:.4f}")
+            # Color‑coded probabilities
+            st.markdown(
+                f"⬆️ up: <span style='color:green'><b>{probs[1]:.4f}</b></span>",
+                unsafe_allow_html=True,
+            )
+            st.markdown(
+                f"➡️ no_change: <span style='color:yellow'><b>{probs[0]:.4f}</b></span>",
+                unsafe_allow_html=True,
+            )
+            st.markdown(
+                f"⬇️ down: <span style='color:red'><b>{probs[2]:.4f}</b></span>",
+                unsafe_allow_html=True,
+            )
             st.metric(f"Last Entry (EST): ", f"{dt_est.strftime('%Y-%m-%d %I:%M:%S %p %Z')}")
             st.metric(f"Last Entry (PDT): ", f"{dt_pdt.strftime('%Y-%m-%d %I:%M:%S %p %Z')}")
 
