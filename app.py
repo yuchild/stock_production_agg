@@ -87,6 +87,14 @@ def main():
     label_mapping = {0: "no_change", 2: "down", 1: "up"}
     pred_label = label_mapping.get(pred, "unknown").upper()
 
+    # after you have `probs` and before you compute stop_loss_price/take_profit_price
+    # 1) rank the probabilities, highest first
+    ranked = sorted(range(len(probs)), key=lambda i: probs[i], reverse=True)
+    # 2) if highest is no_change (index 0), pick the next best
+    chosen_idx = ranked[1] if ranked[0] == 0 else ranked[0]
+    # map to “up” or “down”
+    direction = {1: "up", 2: "down"}[chosen_idx]
+
     # Datetime conversion
     dt_utc = X_input.index[0]
     dt_est = dt_utc.astimezone(ZoneInfo("America/New_York"))
@@ -101,8 +109,18 @@ def main():
     risk = float(account_balance) * kelly
     max_loss_amount = risk * float(max_loss_pct)
     shares = int(risk / last_price) if risk > last_price else 0
-    stop_loss_price = last_price - max_loss_amount / shares if shares > 0 else 0
-    take_profit_price = last_price + 2 * max_loss_amount / shares if shares > 0 else 0
+
+    if shares > 0:
+        if direction == "up":
+            stop_loss_price   = last_price - max_loss_amount / shares
+            take_profit_price = last_price + 2 * max_loss_amount / shares
+        else:  # down
+            stop_loss_price   = last_price + max_loss_amount / shares
+            take_profit_price = last_price - 2 * max_loss_amount / shares
+    else:
+        stop_loss_price = take_profit_price = 0
+    # stop_loss_price = last_price - max_loss_amount / shares if shares > 0 else 0
+    # take_profit_price = last_price + 2 * max_loss_amount / shares if shares > 0 else 0
 
     # Split main view into two equal columns
     col_left, col_right = st.columns(2)
@@ -119,10 +137,37 @@ def main():
             st.metric("Kelly Criterion", f"{kelly:.2%}")
             st.header("Trade Metrics")
             st.metric("Risk Amount", f"{risk:.2f}")
-            st.metric("Shares to Buy", shares)
-            st.metric("Max Loss Amount", f"{max_loss_amount:.2f}")
-            st.metric("Stop Loss Price", f"${stop_loss_price:.2f}")
-            st.metric("Take Profit Price", f"${take_profit_price:.2f}")
+
+            # decide label for shares
+            action = "Buy" if direction == "up" else "Sell"
+            color  = "green" if action == "Buy" else "red"
+
+            # big, bold “Shares to Buy/Sell: N” with dynamic color
+            st.markdown(
+                f"<div style='font-size:32px; font-weight:600;'>"
+                f"Shares to <span style='color:{color};'>{action}</span>: {shares}"
+                f"</div>",
+                unsafe_allow_html=True,
+            )
+
+            # big, bold Stop Loss Price in red
+            st.markdown(
+                f"<div style='font-size:32px; font-weight:600;'>"
+                f"Stop Loss Price: <span style='color:red;'>${stop_loss_price:.2f}</span>"
+                f"</div>",
+                unsafe_allow_html=True,
+            )
+
+            # big, bold Take Profit Price in green
+            st.markdown(
+                f"<div style='font-size:32px; font-weight:600;'>"
+                f"Take Profit Price: <span style='color:green;'>${take_profit_price:.2f}</span>"
+                f"</div>",
+                unsafe_allow_html=True,
+            )
+
+            # st.metric("Stop Loss Price", f"${stop_loss_price:.2f}")
+            # st.metric("Take Profit Price", f"${take_profit_price:.2f}")
 
         # Summary & Prospect
         with text_col2:
