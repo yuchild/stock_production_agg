@@ -23,11 +23,13 @@ from sklearn.utils.class_weight import compute_class_weight
 from sklearn.feature_selection import SelectFromModel
 from sklearn.preprocessing import OneHotEncoder
 from sklearn.utils.class_weight import compute_class_weight
-from sklearn.metrics import classification_report
+from sklearn.metrics import classification_report, mean_squared_error, r2_score
+from sklearn.multioutput import MultiOutputRegressor
 
-from xgboost import XGBClassifier
+from xgboost import XGBClassifier, XGBRegressor
 
-from datetime import datetime
+
+from datetime import datetime, timedelta
 from zoneinfo import ZoneInfo
 
 # Set yfinance logging level to ERROR to suppress DEBUG logs
@@ -540,7 +542,102 @@ def xg_boost_model(interval="1d", grid_search_on=False) -> None:
     joblib.dump(best_pipeline, model_path)
     print(f"\nModel saved at: {model_path}")
 
-    
+
+# Train / save a 15-step-ahead regressor
+def xg_boost_reg_model(interval: str = "1d", grid_search_on: bool = False) -> None:
+    combined_df_path = f"./data_transformed/all_{interval}_model_df.pkl"
+    model_path       = f"./models/xgboost_{interval}_regressor.pkl"
+    horizon = 15
+
+    # 1. load combined feature table
+    df = pd.read_pickle(combined_df_path)
+
+    # 2. build your multi-output target: next 15 adj_close values
+    for i in range(1, horizon + 1):
+        df[f"adj_close_t+{i}"] = df["adj_close"].shift(-i)
+    df.dropna(subset=[f"adj_close_t+{horizon}"], inplace=True)
+
+    # 3. define feature columns (same as your xg_boost_model, minus 'direction')
+    feature_cols = [
+        'open','high','low','close','adj_close','volume',
+        'slow_sma_signal','fast_sma_signal',
+        'stdev20','stdev10','stdev5',
+        'vix_stdev20','vix_stdev10','vix_stdev5',
+        'vol_stdev20','vol_stdev10','vol_stdev5',
+        'top_stdev20','top_stdev10','top_stdev5',
+        'body_stdev20','body_stdev10','body_stdev5',
+        'bottom_stdev20','bottom_stdev10','bottom_stdev5',
+        'pct_gap_up_down_stdev20','pct_gap_up_down_stdev10','pct_gap_up_down_stdev5',
+        'month_of_year','day_of_month','day_of_week','hour_of_day',
+        'candle_cluster'
+    ]
+    X = df[feature_cols]
+    # y will be a DataFrame of shape (n_samples, 15)
+    y = df[[f"adj_close_t+{i}" for i in range(1, horizon + 1)]]
+
+    # 4. preprocessing: one‐hot encode the categorical signals, pass the rest through
+    categorical_cols = [
+        'slow_sma_signal','fast_sma_signal',
+        'month_of_year','day_of_month','day_of_week','hour_of_day','candle_cluster'
+    ]
+    preprocessor = ColumnTransformer([
+        ("cat", OneHotEncoder(handle_unknown="ignore", sparse_output=True), categorical_cols)
+    ], remainder="passthrough")
+
+    # 5. set up the multi‐output XGB regressor
+    base_reg = XGBRegressor(
+        objective="reg:squarederror",
+        random_state=42,
+        n_jobs=5,
+        tree_method="hist"
+    )
+    multi_reg = MultiOutputRegressor(base_reg)
+
+    # 6. build pipeline
+    pipeline = Pipeline([
+        ("preproc", preprocessor),
+        ("regressor", multi_reg)
+    ])
+
+    # 7. split
+    X_train, X_test, y_train, y_test = train_test_split(
+        X, y, test_size=0.2, random_state=42
+    )
+
+    # 8. optional grid search
+    if grid_search_on:
+        param_grid = {
+            "regressor__estimator__n_estimators": [100, 200],
+            "regressor__estimator__max_depth":    [3, 5],
+            "regressor__estimator__learning_rate":[0.1, 0.01],
+        }
+        gs = GridSearchCV(
+            pipeline,
+            param_grid=param_grid,
+            cv=3,
+            scoring="neg_mean_squared_error",
+            n_jobs=7,
+            verbose=2
+        )
+        gs.fit(X_train, y_train)
+        best = gs.best_estimator_
+        print("Best params:", gs.best_params_)
+    else:
+        pipeline.fit(X_train, y_train)
+        best = pipeline
+
+    # 9. evaluate
+    y_pred = best.predict(X_test)
+    mse  = mean_squared_error(y_test, y_pred)
+    r2   = r2_score(y_test, y_pred)
+    print(f"Test MSE: {mse:.4f}   R²: {r2:.4f}")
+
+    # 10. save
+    os.makedirs(os.path.dirname(model_path), exist_ok=True)
+    joblib.dump(best, model_path)
+    print(f"Regressor saved to {model_path}")
+
+
 
 ##########################################
 # functions to use model for predictions #
@@ -707,6 +804,56 @@ def arima_model(symbol: str, interval: str) -> None:
     ...
 
 
+#######################################
+# functions for plots / visulizations #
+#######################################
+
+# xgboost regressor model plot the last 45 adj_close + next 15 predicted
+def plot_adj_close(symbol: str,
+                   interval: str = "1d",
+                   past_intervals: int = 45,
+                   future_intervals: int = 15):
+    # 1. download + feature-build for this symbol
+    download(symbol, interval)
+    download("^VIX", interval)
+    make_table_features(symbol, interval, build=False)
+    df_feat = load_model_df(symbol, interval)
+
+    # 2. historical series
+    df_raw = load_raw(symbol, interval)
+    ser_past = df_raw["adj_close"].tail(past_intervals)
+
+    # 3. load regressor
+    model_path = f"./models/xgboost_{interval}_regressor.pkl"
+    reg = joblib.load(model_path)
+
+    # 4. get the very last feature‐row
+    X_input = df_feat.drop(columns=["direction"]).iloc[[-1]]
+
+    # 5. predict multi‐step
+    preds = reg.predict(X_input).flatten()
+
+    # 6. build a future‐datetime index
+    int_map = {
+        "1d": timedelta(days=1),
+        "1h": timedelta(hours=1),
+        "15m": timedelta(minutes=15),
+        "5m": timedelta(minutes=5),
+        "1m": timedelta(minutes=1),
+    }
+    delta = int_map.get(interval, timedelta(days=1))
+    last_ts = df_raw.index[-1]
+    future_idx = [last_ts + delta * (i + 1) for i in range(future_intervals)]
+
+    # 7. plot
+    plt.figure(figsize=(10, 6))
+    plt.plot(ser_past.index, ser_past.values, label="Historical adj_close")
+    plt.plot(future_idx, preds,          label="Predicted adj_close", linestyle="--")
+    plt.xlabel("Time")
+    plt.ylabel("Adj Close Price")
+    plt.title(f"{symbol.upper()} — Last {past_intervals} + Next {future_intervals} {interval} Points")
+    plt.legend()
+    plt.show()
 
 
 if __name__ == '__main__':
