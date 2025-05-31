@@ -454,7 +454,7 @@ def xg_boost_model(interval="1d", grid_search_on=False) -> None:
         num_class=3,
         random_state=42,
         eval_metric="mlogloss",
-        n_jobs=5,
+        n_jobs=6,
         reg_alpha=1.0,
         reg_lambda=1.0,
     )
@@ -466,7 +466,7 @@ def xg_boost_model(interval="1d", grid_search_on=False) -> None:
         num_class=3,
         random_state=42,
         eval_metric="mlogloss",
-        n_jobs=5,
+        n_jobs=6,
         reg_alpha=1.0,
         reg_lambda=1.0,
         tree_method='hist',
@@ -508,7 +508,7 @@ def xg_boost_model(interval="1d", grid_search_on=False) -> None:
                                    param_grid, 
                                    cv=3, 
                                    scoring='accuracy',
-                                   n_jobs=5,
+                                   n_jobs=6,
                                    verbose=3,
                                    pre_dispatch='2*n_jobs',
                                   )
@@ -588,7 +588,7 @@ def xg_boost_reg_model(interval: str = "1d", grid_search_on: bool = False) -> No
     base_reg = XGBRegressor(
         objective="reg:squarederror",
         random_state=42,
-        n_jobs=5,
+        n_jobs=6,
         tree_method="hist"
     )
     multi_reg = MultiOutputRegressor(base_reg)
@@ -616,7 +616,7 @@ def xg_boost_reg_model(interval: str = "1d", grid_search_on: bool = False) -> No
             param_grid=param_grid,
             cv=3,
             scoring="neg_mean_squared_error",
-            n_jobs=7,
+            n_jobs=6,
             verbose=2
         )
         gs.fit(X_train, y_train)
