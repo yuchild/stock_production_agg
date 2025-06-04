@@ -212,33 +212,31 @@ def main():
 
     # Right: single, larger chart
     with col_right:
-        st.header(f"{symbol} {interval} Price Chart")
-        # df_hist = yf.Ticker(symbol).history(
-        #     interval=interval,
-        #     start=str(start_date),
-        #     end=str(today),
-        #     auto_adjust=False,
-        #     prepost=True
-        # )
+        st.header(f"{symbol} {interval} Adj Close + 15 Intervals Forecast")
 
-        # make start_date into a pandas Timestamp…
-        start_ts = pd.Timestamp(start_date)
-        # …and localize it if your index has a tz
-        if df_prospect.index.tz is not None:
-            start_ts = start_ts.tz_localize(df_prospect.index.tz)
-        # now slice safely
-        df_hist = df_prospect.loc[start_ts :].copy()
-        df_hist.columns = df_hist.columns.str.lower()
-        df_hist.drop(['dividends', 'stock_splits'], axis=1, errors='ignore', inplace=True)
-        fig, ax = plt.subplots(figsize=(16, 16))
+        # 1) Call the existing function to build the figure
+        f.plot_adj_close(symbol, interval)
+
+        # 2) Grab the current Matplotlib figure and force a black background
+        fig = plt.gcf()
+        # Figure background
         fig.patch.set_facecolor('black')
-        ax.set_facecolor('black')
-        ax.plot(df_hist.index, df_hist['close'], linewidth=3)
-        ax.set_xlabel('Date', color='white')
-        ax.set_ylabel('Price', color='white')
-        ax.set_title(f"{symbol} Close Price History", color='white')
-        ax.tick_params(colors='white')
-        fig.autofmt_xdate()
+        # Loop over all axes and set their backgrounds/labels to white
+        for ax in fig.axes:
+            ax.set_facecolor('black')
+            ax.tick_params(colors='white')
+            ax.xaxis.label.set_color('white')
+            ax.yaxis.label.set_color('white')
+            ax.title.set_color('white')
+            # If there is a legend, force its text/frame to white/black
+            leg = ax.get_legend()
+            if leg:
+                for txt in leg.get_texts():
+                    txt.set_color('white')
+                leg.get_frame().set_facecolor('black')
+                leg.get_frame().set_edgecolor('white')
+
+        # 3) Render in Streamlit
         st.pyplot(fig)
 
 if __name__ == '__main__':
