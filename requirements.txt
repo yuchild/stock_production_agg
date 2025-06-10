@@ -2,12 +2,12 @@
 yfinance
 
 # Data manipulation and scientific computing
-pandas
-numpy
+# pandas
+# numpy
 
 # Machine Learning Modeling
-scikit-learn
-xgboost
+# scikit-learn
+# xgboost
 
 # PyTorch with GPU support
 # Note: To get GPU capabilities, you may need to install the appropriate CUDA-enabled wheel.
@@ -30,3 +30,10 @@ streamlit
 pmdarima
 statsmodels
 prophet
+
+# Exact versions for reproducibility
+pandas==1.5.3
+numpy==1.24.2
+scikit-learn==1.2.2
+xgboost==1.7.6
+joblib==1.2.0
