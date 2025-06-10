@@ -6,6 +6,8 @@ import os
 import pandas as pd
 # import yfinance as yf
 import matplotlib.pyplot as plt
+from sklearn.multioutput import MultiOutputRegressor
+from xgboost import XGBRegressor
 import joblib
 from datetime import datetime, timedelta
 from zoneinfo import ZoneInfo
