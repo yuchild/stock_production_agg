@@ -42,7 +42,7 @@ def main():
     - Max Loss Amount: Maximum loss amount based on account balance and max loss percentage
     - Shares to Buy: Number of shares to buy based on risk amount and last price
     - Stop Loss Price: Price to set for stop loss based on last price and max loss amount
-    - Take Profit Price: Price to set for take profit based on last price and max loss amount
+    - Take Profit Price: Price to set for take profit based on last price and 2x max loss amount above base price
     """)
 
     # Determine start date based on interval
