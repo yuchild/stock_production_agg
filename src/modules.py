@@ -13,17 +13,34 @@ import os
 import pickle
 import joblib
 
+
+# Optional: silence verbose GPU messages
+os.environ['TF_CPP_MIN_LOG_LEVEL'] = '2'
+
+import tensorflow as tf
+from tensorflow.keras import layers, models, callbacks
+
+# Enable memory growth on GPU to prevent allocation errors
+gpus = tf.config.list_physical_devices('GPU')
+if gpus:
+    try:
+        for gpu in gpus:
+            tf.config.experimental.set_memory_growth(gpu, True)
+        print(f"✅ Using GPU: {gpus}")
+    except RuntimeError as e:
+        print(f"❌ GPU setup error: {e}")
+else:
+    print("⚠️ No GPU detected. Running on CPU.")
+
 from sklearn.compose import ColumnTransformer
 from sklearn.preprocessing import StandardScaler, OneHotEncoder
 from sklearn.pipeline import Pipeline
 from sklearn.cluster import KMeans
 from sklearn.model_selection import train_test_split, GridSearchCV
-from sklearn.compose import ColumnTransformer
 from sklearn.utils.class_weight import compute_class_weight
 from sklearn.feature_selection import SelectFromModel
 from sklearn.preprocessing import OneHotEncoder
-from sklearn.utils.class_weight import compute_class_weight
-from sklearn.metrics import classification_report, mean_squared_error, r2_score
+from sklearn.metrics import classification_report, mean_squared_error, r2_score, ConfusionMatrixDisplay
 from sklearn.multioutput import MultiOutputRegressor
 
 from xgboost import XGBClassifier, XGBRegressor
@@ -541,6 +558,116 @@ def xg_boost_model(interval="1d", grid_search_on=False) -> None:
     os.makedirs(os.path.dirname(model_path), exist_ok=True)
     joblib.dump(best_pipeline, model_path)
     print(f"\nModel saved at: {model_path}")
+
+# neural net model
+def neural_net_model(interval="1d"):
+    # 1. Load data
+    df_path = f"./data_transformed/all_{interval}_model_df.pkl"
+    model_dir = f"./models"
+    model_path = os.path.join(model_dir, f"neural_net_{interval}_model.keras")
+    df = pd.read_pickle(df_path)
+
+    # 2. Define features and target
+    cols = [
+        'slow_sma_signal','fast_sma_signal','stdev20','stdev10','stdev5',
+        'vix_stdev20','vix_stdev10','vix_stdev5','vol_stdev20','vol_stdev10','vol_stdev5',
+        'top_stdev20','top_stdev10','top_stdev5','body_stdev20','body_stdev10','body_stdev5',
+        'bottom_stdev20','bottom_stdev10','bottom_stdev5',
+        'pct_gap_up_down_stdev20','pct_gap_up_down_stdev10','pct_gap_up_down_stdev5',
+        'month_of_year','day_of_month','day_of_week','hour_of_day',
+        'candle_cluster','direction'
+    ]
+    df = df[cols].dropna()
+    X = df.drop(columns=["direction"])
+    y = df["direction"].astype(int)
+
+    categorical_cols = [
+        'slow_sma_signal','fast_sma_signal','month_of_year',
+        'day_of_month','day_of_week','hour_of_day','candle_cluster'
+    ]
+
+    # 3. Preprocessing pipeline
+    preprocessor = ColumnTransformer([
+        ("cat", OneHotEncoder(sparse_output=False, handle_unknown="ignore"), categorical_cols)
+    ], remainder="passthrough")
+
+    X_processed = preprocessor.fit_transform(X)
+    joblib.dump(preprocessor, f"{model_dir}/neural_net_{interval}_preproc.pkl")
+
+    # 4. Class weights for imbalance
+    class_weights = compute_class_weight('balanced', classes=np.unique(y), y=y)
+    weight_dict = dict(enumerate(class_weights))
+
+    # 5. Train/test split
+    X_train, X_test, y_train, y_test = train_test_split(
+        X_processed, y, test_size=0.2, random_state=42, stratify=y
+    )
+
+    # 6. Convert y to categorical for Keras
+    y_train_cat = tf.keras.utils.to_categorical(y_train, num_classes=3)
+    y_test_cat = tf.keras.utils.to_categorical(y_test, num_classes=3)
+
+    # 7. Build model (transfer learning base)
+    base_model = tf.keras.applications.DenseNet121(
+        include_top=False, weights=None, input_shape=(X_train.shape[1], 1), pooling='avg'
+    )
+
+    # manually emulate transfer-learning-like behavior on tabular input
+    model = models.Sequential([
+        layers.Input(shape=(X_train.shape[1],)),
+        layers.Reshape((X_train.shape[1], 1)),
+        layers.Conv1D(32, kernel_size=3, activation="relu"),
+        layers.GlobalMaxPooling1D(),
+        layers.Dense(64, activation="relu"),
+        layers.Dropout(0.2),
+        layers.Dense(3, activation="softmax")
+    ])
+
+    # 8. Compile
+    model.compile(
+        optimizer="adam",
+        loss="categorical_crossentropy",
+        metrics=["accuracy"]
+    )
+
+    # 9. Callbacks
+    cb = [
+        callbacks.EarlyStopping(patience=5, restore_best_weights=True),
+        callbacks.ModelCheckpoint(model_path, save_best_only=True)
+    ]
+
+    # 10. Train
+    history = model.fit(
+        X_train, y_train_cat,
+        validation_data=(X_test, y_test_cat),
+        epochs=50,
+        batch_size=32,
+        callbacks=cb,
+        class_weight=weight_dict,
+        verbose=2
+    )
+
+    # 11. Evaluation
+    y_pred_probs = model.predict(X_test)
+    y_pred = np.argmax(y_pred_probs, axis=1)
+    print("\nClassification Report:")
+    print(classification_report(y_test, y_pred))
+
+    # 12. Plot metrics
+    fig, ax = plt.subplots(1, 2, figsize=(12, 5))
+    ax[0].plot(history.history['accuracy'], label='Train Acc')
+    ax[0].plot(history.history['val_accuracy'], label='Val Acc')
+    ax[0].legend(); ax[0].set_title('Accuracy')
+
+    ax[1].plot(history.history['loss'], label='Train Loss')
+    ax[1].plot(history.history['val_loss'], label='Val Loss')
+    ax[1].legend(); ax[1].set_title('Loss')
+    plt.tight_layout()
+    plt.savefig(f"{model_dir}/nn_{interval}_metrics.png")
+    plt.close()
+
+    print(f"\nSaved model to: {model_path}")
+    print(f"Saved preprocessing pipeline to: {model_dir}/neural_net_{interval}_preproc.pkl")
 
 
 # Train / save a 15-step-ahead regressor

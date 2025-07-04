@@ -11,8 +11,11 @@ yfinance
 
 # PyTorch with GPU support
 # Note: To get GPU capabilities, you may need to install the appropriate CUDA-enabled wheel.
-torch
-torchvision
+# torch
+# torchvision
+
+# TensorFlow for GPU (your setup uses CUDA 12.5, TensorFlow 2.18.0 is fine)
+tensorflow==2.18.0
 
 # Visualization libraries
 matplotlib
