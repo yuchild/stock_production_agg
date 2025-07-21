@@ -310,7 +310,37 @@ def make_table_features(symbol: str, interval: str, build: bool=True) -> None:
 
     # target column: direction: -1, 0, 1
     stock_table['adj_close_pctc'] = stock_table['adj_close'].pct_change(fill_method=None)
-    stock_table['direction'] = pd.qcut(stock_table['adj_close_pctc'], q=3, labels=[2, 0, 1]) #
+    
+    quantile_result = pd.qcut(
+        stock_table['adj_close_pctc'],
+        q=3,
+        duplicates='drop',
+        retbins=True
+    )
+
+    # Get number of actual bins
+    _, bin_edges = quantile_result
+    num_bins = len(bin_edges) - 1
+
+    # Define matching labels
+    label_map = {
+        3: [2, 0, 1],  # 3-way classification: down, no_change, up
+        2: [0, 1],     # fallback: no_change vs. up
+        1: [1]         # fallback: just assign everything to one class
+    }
+
+    # Only proceed if at least 2 bins exist
+    if num_bins >= 2:
+        stock_table['direction'] = pd.qcut(
+            stock_table['adj_close_pctc'],
+            q=num_bins,
+            labels=label_map[num_bins],
+            duplicates='drop'
+        )
+    else:
+        # fallback: assign NaN or a constant class
+        stock_table['direction'] = np.nan
+
     stock_table['direction'] = stock_table['direction'].shift(-1).copy() # shift up to predict next time interval 
 
     # merge vix with stock table
