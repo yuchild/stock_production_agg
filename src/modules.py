@@ -966,10 +966,13 @@ def arima_model(symbol: str, interval: str) -> None:
 #######################################
 
 # xgboost regressor model plot the last 45 adj_close + next 15 predicted
-def plot_adj_close(symbol: str,
-                   interval: str = "1d",
-                   past_intervals: int = 45,
-                   future_intervals: int = 15):
+def plot_adj_close(
+    symbol: str,
+    interval: str = "1d",
+    past_intervals: int = 45,
+    future_intervals: int = 15,
+    facecolor: str = "black",
+):
     # 1. download + feature-build for this symbol
     download(symbol, interval)
     download("^VIX", interval)
@@ -982,15 +985,21 @@ def plot_adj_close(symbol: str,
 
     # 3. load regressor
     model_path = f"./models/xgboost_{interval}_regressor.pkl"
-    reg = joblib.load(model_path)
+    try:
+        reg = joblib.load(model_path)
+    except Exception as e:
+        raise RuntimeError(
+            f"Could not load regressor at {model_path}. "
+            f"This is likely a scikit-learn version mismatch. Original error: {e}"
+        ) from e
 
-    # 4. get the very last feature‐row
-    X_input = df_feat.drop(columns=["direction"]).iloc[[-1]]
+    # 4. get the very last feature row
+    X_input = df_feat.drop(columns=["direction"], errors="ignore").iloc[[-1]]
 
-    # 5. predict multi‐step
+    # 5. predict multi-step
     preds = reg.predict(X_input).flatten()
 
-    # 6. build a future‐datetime index
+    # 6. build future datetime index
     int_map = {
         "1d": timedelta(days=1),
         "1h": timedelta(hours=1),
@@ -1003,14 +1012,45 @@ def plot_adj_close(symbol: str,
     future_idx = [last_ts + delta * (i + 1) for i in range(future_intervals)]
 
     # 7. plot
-    plt.figure(figsize=(10, 6))
-    plt.plot(ser_past.index, ser_past.values, label="Historical adj_close")
-    plt.plot(future_idx, preds,          label="Predicted adj_close", linestyle="--")
-    plt.xlabel("Time")
-    plt.ylabel("Adj Close Price")
-    plt.title(f"{symbol.upper()} — Last {past_intervals} + Next {future_intervals} {interval} Points")
-    plt.legend()
-    plt.show()
+    fig, ax = plt.subplots(figsize=(12, 7))
+    fig.patch.set_facecolor(facecolor)
+    ax.set_facecolor(facecolor)
+
+    ax.plot(
+        ser_past.index,
+        ser_past.values,
+        label="Historical adj_close",
+        linewidth=3,
+        color="cyan",
+    )
+    ax.plot(
+        future_idx,
+        preds,
+        label="Predicted adj_close",
+        linestyle="--",
+        linewidth=3,
+        color="orange",
+    )
+
+    ax.set_xlabel("Time", color="white")
+    ax.set_ylabel("Adj Close Price", color="white")
+    ax.set_title(
+        f"{symbol.upper()} — Last {past_intervals} + Next {future_intervals} {interval} Points",
+        color="white",
+    )
+    ax.tick_params(colors="white")
+
+    leg = ax.legend()
+    if leg:
+        leg.get_frame().set_facecolor(facecolor)
+        leg.get_frame().set_edgecolor("white")
+        for text in leg.get_texts():
+            text.set_color("white")
+
+    fig.autofmt_xdate()
+    fig.tight_layout()
+
+    return fig
 
 
 if __name__ == '__main__':
