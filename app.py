@@ -28,7 +28,7 @@ def main():
     interval = st.sidebar.selectbox(
         "Interval", 
         options=['1m', '5m', '15m', '1h', '1d', '1wk', '1mo',], 
-        index=3
+        index=4
     )
     account_balance = st.sidebar.text_input("Account Balance:", value='100000')
     max_loss_pct = st.sidebar.text_input("Max Loss % per trade (default 1.5%):", value='0.015')
