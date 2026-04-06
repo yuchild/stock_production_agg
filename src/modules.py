@@ -969,21 +969,35 @@ def arima_model(symbol: str, interval: str) -> None:
 def plot_adj_close(
     symbol: str,
     interval: str = "1d",
-    past_intervals: int = 45,
-    future_intervals: int = 15,
+    past_intervals: int | None = None,
+    future_intervals: int | None = None,
     facecolor: str = "black",
 ):
-    # 1. download + feature-build for this symbol
+    # interval-aware defaults
+    if past_intervals is None or future_intervals is None:
+        interval_defaults = {
+            "1m":  {"past": 60, "future": 15},
+            "5m":  {"past": 60, "future": 15},
+            "15m": {"past": 60, "future": 15},
+            "1h":  {"past": 60, "future": 15},
+            "1d":  {"past": 45, "future": 15},
+            "1wk": {"past": 26, "future": 15},
+            "1mo": {"past": 18,  "future": 6},
+        }
+        defaults = interval_defaults.get(interval, {"past": 45, "future": 15})
+        if past_intervals is None:
+            past_intervals = defaults["past"]
+        if future_intervals is None:
+            future_intervals = defaults["future"]
+
     download(symbol, interval)
     download("^VIX", interval)
     make_table_features(symbol, interval, build=False)
     df_feat = load_model_df(symbol, interval)
 
-    # 2. historical series
     df_raw = load_raw(symbol, interval)
     ser_past = df_raw["adj_close"].tail(past_intervals)
 
-    # 3. load regressor
     model_path = f"./models/xgboost_{interval}_regressor.pkl"
     try:
         reg = joblib.load(model_path)
@@ -993,15 +1007,13 @@ def plot_adj_close(
             f"This is likely a scikit-learn version mismatch. Original error: {e}"
         ) from e
 
-    # 4. get the very last feature row
     X_input = df_feat.drop(columns=["direction"], errors="ignore").iloc[[-1]]
+    preds = reg.predict(X_input).flatten()[:future_intervals]
 
-    # 5. predict multi-step
-    preds = reg.predict(X_input).flatten()
-
-    # 6. build future datetime index
     int_map = {
         "1d": timedelta(days=1),
+        "1wk": timedelta(weeks=1),
+        "1mo": timedelta(days=30),
         "1h": timedelta(hours=1),
         "15m": timedelta(minutes=15),
         "5m": timedelta(minutes=5),
@@ -1011,7 +1023,6 @@ def plot_adj_close(
     last_ts = df_raw.index[-1]
     future_idx = [last_ts + delta * (i + 1) for i in range(future_intervals)]
 
-    # 7. plot
     fig, ax = plt.subplots(figsize=(12, 7))
     fig.patch.set_facecolor(facecolor)
     ax.set_facecolor(facecolor)
